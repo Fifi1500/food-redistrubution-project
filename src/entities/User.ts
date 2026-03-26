@@ -5,6 +5,7 @@ import {
   CreateDateColumn,
   UpdateDateColumn,
   OneToOne,
+  IntegerType,
 } from "typeorm";
 import { Donor } from "./Donor";
 import { Beneficiary } from "./Beneficiary";
@@ -41,7 +42,6 @@ export class User {
 
   @Column({ nullable: true })
   address: string;
-
   @Column({
     type: "geometry",
     spatialFeatureType: "Point",
@@ -49,6 +49,8 @@ export class User {
     nullable: true,
   })
   location: { type: "Point"; coordinates: [number, number] }; // [longitude, latitude]
+  @Column({ default: true })
+  isActive: boolean;
 
   @CreateDateColumn()
   createdAt: Date;

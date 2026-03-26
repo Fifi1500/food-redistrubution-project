@@ -14,9 +14,9 @@ export const AppDataSource = new DataSource({
   host: process.env.DB_HOST || "localhost",
   port: parseInt(process.env.DB_PORT || "5432"),
   username: process.env.DB_USERNAME || "postgres",
-  password: process.env.DB_PASSWORD || "password",
-  database: process.env.DB_DATABASE || "food_surplus",
-  synchronize: process.env.NODE_ENV === "development", // true en dev pour créer automatiquement les tables (à utiliser avec précaution)
+  password: process.env.DB_PASSWORD || "123456",
+  database: process.env.DB_DATABASE || "food_surplus_db",
+  synchronize: process.env.NODE_ENV === "development",
   logging: process.env.NODE_ENV === "development",
   entities: [User, Donor, Beneficiary, Donation, Request, Notification],
   migrations: ["src/migrations/*.ts"],

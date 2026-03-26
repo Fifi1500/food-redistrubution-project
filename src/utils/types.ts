@@ -56,3 +56,30 @@ export enum NotificationType {
   REQUEST_REJECTED = "request_rejected",
   REMINDER = "reminder",
 }
+
+// units for quantity
+export type UnitType =
+  | "kg"
+  | "g"
+  | "L"
+  | "mL"
+  | "pièces"
+  | "unités"
+  | "cartons"
+  | "sacs"
+  | "boîtes"
+  | string;
+
+export const UNITS = {
+  KILOGRAM: "kg",
+  GRAM: "g",
+  LITER: "L",
+  MILLILITER: "mL",
+  PIECES: "pièces",
+  UNITS: "unités",
+  BOXES: "cartons",
+  BAGS: "sacs",
+  PACKS: "paquets",
+  PLATES: "plateaux",
+  TRAYS: "barquettes",
+} as const;

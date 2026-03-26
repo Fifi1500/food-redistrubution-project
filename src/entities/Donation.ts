@@ -6,6 +6,7 @@ import {
   OneToMany,
   CreateDateColumn,
   UpdateDateColumn,
+  Index,
 } from "typeorm";
 import { Donor } from "./Donor";
 import { Request } from "./Request";
@@ -21,13 +22,27 @@ export enum FoodCategory {
 
 export enum DonationStatus {
   AVAILABLE = "available",
-  RESERVED = "reserved",
   COMPLETED = "completed",
   EXPIRED = "expired",
   CANCELLED = "cancelled",
 }
 
+export enum UnitType {
+  KG = "kg",
+  G = "g",
+  L = "L",
+  ML = "mL",
+  PIECES = "pièces",
+  UNITS = "unités",
+  BOXES = "cartons",
+  BAGS = "sacs",
+  PACKS = "paquets",
+  TRAYS = "plateaux",
+  CONTAINERS = "barquettes",
+}
+
 @Entity("donations")
+@Index(["status"])
 export class Donation {
   @PrimaryGeneratedColumn("uuid")
   id: string;
@@ -51,8 +66,15 @@ export class Donation {
   @Column("float")
   availableQuantity: number;
 
+  @Column({
+    type: "enum",
+    enum: UnitType,
+    default: UnitType.KG,
+  })
+  unit: UnitType;
+
   @Column({ type: "timestamp" })
-  expirationDate: Date; // date limite de consommation
+  expirationDate: Date;
 
   @Column()
   pickupAddress: string;
@@ -61,8 +83,9 @@ export class Donation {
     type: "geometry",
     spatialFeatureType: "Point",
     srid: 4326,
+    nullable: true,
   })
-  pickupLocation: { type: "Point"; coordinates: [number, number] };
+  pickupLocation: any;
 
   @Column({ default: false })
   requiresRefrigeration: boolean;

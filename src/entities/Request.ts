@@ -5,6 +5,7 @@ import {
   ManyToOne,
   CreateDateColumn,
   UpdateDateColumn,
+  Index,
 } from "typeorm";
 import { Donation } from "./Donation";
 import { Beneficiary } from "./Beneficiary";
@@ -14,10 +15,11 @@ export enum RequestStatus {
   APPROVED = "approved",
   REJECTED = "rejected",
   COMPLETED = "completed",
-  CANCELLED = "cancelled",
 }
 
 @Entity("requests")
+@Index(["status"]) // Index simple
+@Index(["donationId"]) // Index pour les recherches par don
 export class Request {
   @PrimaryGeneratedColumn("uuid")
   id: string;
@@ -25,8 +27,14 @@ export class Request {
   @ManyToOne(() => Donation, (donation) => donation.requests)
   donation: Donation;
 
+  @Column({ nullable: true })
+  donationId: string;
+
   @ManyToOne(() => Beneficiary, (beneficiary) => beneficiary.requests)
   beneficiary: Beneficiary;
+
+  @Column({ nullable: true })
+  beneficiaryId: string;
 
   @Column("float")
   requestedQuantity: number;
@@ -38,14 +46,14 @@ export class Request {
   })
   status: RequestStatus;
 
+  @Column({ nullable: true })
+  notes: string;
+
   @CreateDateColumn()
   requestDate: Date;
 
   @Column({ type: "timestamp", nullable: true })
-  processedAt: Date; // date de réponse (approbation/rejet)
-
-  @Column({ nullable: true })
-  notes: string; // pour que le bénéficiaire ajoute un message
+  processedAt: Date;
 
   @UpdateDateColumn()
   updatedAt: Date;
