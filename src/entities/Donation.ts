@@ -53,6 +53,9 @@ export class Donation {
   @Column()
   foodType: string;
 
+  @Column({ type: "text", nullable: true })
+  description: string | null;
+
   @Column({
     type: "enum",
     enum: FoodCategory,
@@ -79,12 +82,13 @@ export class Donation {
   @Column()
   pickupAddress: string;
 
-  @Column({
-    type: "geometry",
-    spatialFeatureType: "Point",
-    srid: 4326,
-    nullable: true,
-  })
+  // should install PostGIS
+  // @Column({
+  //   type: "geometry",
+  //   spatialFeatureType: "Point",
+  //   srid: 4326,
+  //   nullable: true,
+  // })
   pickupLocation: any;
 
   @Column({ default: false })

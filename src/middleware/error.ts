@@ -18,7 +18,7 @@ export const errorHandler = (
   let statusCode = res.statusCode === 200 ? 500 : res.statusCode;
   let message = err.message || "Erreur interne du serveur";
 
-  // Erreur de validation (express-validator)
+  // Erreur de validation
   if (err.name === "ValidationError") {
     statusCode = 400;
     message = err.message;
@@ -35,7 +35,7 @@ export const errorHandler = (
     message = "Token expiré";
   }
 
-  // Erreur Multer (upload)
+  // Erreur Multer
   if (err.name === "MulterError") {
     statusCode = 400;
     if (err.code === "LIMIT_FILE_SIZE") {

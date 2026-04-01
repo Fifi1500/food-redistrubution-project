@@ -138,7 +138,7 @@ export class RequestService {
     });
   }
 
-  // Demandes reçues (pour donateur)
+  // Demandes reçues (pour donor)
   async getReceivedRequests(user: User) {
     const donations = await this.donationRepository.find({
       where: { donor: { user: { id: user.id } } },

@@ -4,7 +4,7 @@ import { DonationService } from "../services";
 const donationService = new DonationService();
 
 export class DonationController {
-  // create 
+  // create
   static async create(req: Request, res: Response) {
     try {
       const user = req.user;
@@ -17,15 +17,15 @@ export class DonationController {
       res.status(400).json({ message: error.message });
     }
   }
-  
+
   static async getUnits(req: Request, res: Response) {
-  try {
-    const units = await donationService.getUnits();
-    res.json({ units });
-  } catch (error: any) {
-    res.status(500).json({ message: error.message });
+    try {
+      const units = await donationService.getUnits();
+      res.json({ units });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
   }
-}
 
   static async list(req: Request, res: Response) {
     try {
@@ -94,20 +94,20 @@ export class DonationController {
     }
   }
 
- static async delete(req: Request, res: Response) {
-  try {
-    const { id } = req.params;
-    const user = req.user; 
-    
-    if (!user) {
-      return res.status(401).json({ message: 'Non authentifié' });
+  static async delete(req: Request, res: Response) {
+    try {
+      const { id } = req.params;
+      const user = req.user;
+
+      if (!user) {
+        return res.status(401).json({ message: "Non authentifié" });
+      }
+
+      await donationService.deleteDonation(id, user);
+
+      res.json({ message: "Don supprimé avec succès" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
     }
-    
-    await donationService.deleteDonation(id, user);  
-    
-    res.json({ message: 'Don supprimé avec succès' });
-  } catch (error: any) {
-    res.status(500).json({ message: error.message });
   }
- }
 }

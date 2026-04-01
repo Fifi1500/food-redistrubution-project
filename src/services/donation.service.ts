@@ -30,6 +30,7 @@ import {
 
 export interface CreateDonationData {
   foodType: string;
+  description?: string;
   category: FoodCategory;
   totalQuantity: number;
   unit: UnitType;
@@ -110,9 +111,10 @@ export class DonationService {
       throw new Error("Unité invalide");
     }
     // 3. Créer le don
-    const donation = this.donationRepository.create({
+    const donationData = {
       donor: donor,
       foodType: data.foodType,
+      description: data.description || null,
       category: data.category || FoodCategory.OTHER,
       totalQuantity: data.totalQuantity,
       availableQuantity: data.totalQuantity,
@@ -124,8 +126,9 @@ export class DonationService {
       handlingInstructions: data.handlingInstructions,
       imageUrl: data.imageUrl,
       status: DonationStatus.AVAILABLE,
-    });
+    };
 
+    const donation = this.donationRepository.create(donationData);
     const savedDonation = await this.donationRepository.save(donation);
 
     // 4. Notifier les bénéficiaires à proximité

@@ -4,7 +4,6 @@ import { AuthService } from "../services";
 const authService = new AuthService();
 
 export class AuthController {
-  // ✅ Ajouter "static" devant chaque méthode
   static async register(req: Request, res: Response) {
     try {
       const { user, token } = await authService.register(req.body);
