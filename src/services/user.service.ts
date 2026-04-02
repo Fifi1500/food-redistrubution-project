@@ -1,11 +1,23 @@
 import { AppDataSource } from "../config/db";
-import { User, UserRole, Donor, Beneficiary } from "../entities";
+import {
+  User,
+  UserRole,
+  Donor,
+  Beneficiary,
+  Donation,
+  Request,
+  Notification,
+} from "../entities";
 import { hashPassword, comparePassword, isValidPassword } from "../utils";
+import { In } from "typeorm";
 
 export class UserService {
   private userRepository = AppDataSource.getRepository(User);
   private donorRepository = AppDataSource.getRepository(Donor);
   private beneficiaryRepository = AppDataSource.getRepository(Beneficiary);
+  private donationRepository = AppDataSource.getRepository(Donation);
+  private requestRepository = AppDataSource.getRepository(Request);
+  private notificationRepository = AppDataSource.getRepository(Notification);
 
   async getAllUsers(page: number = 1, limit: number = 20) {
     const [users, total] = await this.userRepository.findAndCount({
@@ -163,16 +175,78 @@ export class UserService {
     await this.userRepository.save(user);
   }
 
-  async deleteUser(userId: string) {
-    const user = await this.userRepository.findOne({
-      where: { id: userId },
-    });
+  async deleteUser(userId: string): Promise<void> {
+    // Commencer une transaction pour garantir l'intégrité
+    const queryRunner = AppDataSource.createQueryRunner();
+    await queryRunner.connect();
+    await queryRunner.startTransaction();
 
-    if (!user) {
-      throw new Error("Utilisateur non trouvé");
+    try {
+      // 1. Vérifier que l'utilisateur existe
+      const user = await queryRunner.manager.findOne(User, {
+        where: { id: userId },
+        relations: ["donorProfile", "beneficiaryProfile"],
+      });
+
+      if (!user) {
+        throw new Error("Utilisateur non trouvé");
+      }
+
+      // 2. Supprimer les notifications de l'utilisateur
+      await queryRunner.manager.delete(Notification, { user: { id: userId } });
+
+      // 3. Si c'est un donateur, supprimer ses dons et demandes liées
+      if (user.donorProfile) {
+        const donorId = user.donorProfile.id;
+
+        // Récupérer les IDs des dons du donateur
+        const donations = await queryRunner.manager.find(Donation, {
+          where: { donor: { id: donorId } },
+          select: ["id"],
+        });
+
+        const donationIds = donations.map((d) => d.id);
+
+        if (donationIds.length > 0) {
+          // Supprimer les demandes liées à ces dons
+          await queryRunner.manager.delete(Request, {
+            donation: { id: In(donationIds) },
+          });
+          // Supprimer les dons
+          await queryRunner.manager.delete(Donation, {
+            donor: { id: donorId },
+          });
+        }
+
+        // Supprimer le profil donateur
+        await queryRunner.manager.delete(Donor, { user: { id: userId } });
+      }
+
+      // 4. Si c'est un bénéficiaire, supprimer ses demandes
+      if (user.beneficiaryProfile) {
+        const beneficiaryId = user.beneficiaryProfile.id;
+
+        // Supprimer les demandes du bénéficiaire
+        await queryRunner.manager.delete(Request, {
+          beneficiary: { id: beneficiaryId },
+        });
+        // Supprimer le profil bénéficiaire
+        await queryRunner.manager.delete(Beneficiary, { user: { id: userId } });
+      }
+
+      // 5. Supprimer l'utilisateur
+      await queryRunner.manager.delete(User, { id: userId });
+
+      // Valider la transaction
+      await queryRunner.commitTransaction();
+    } catch (error) {
+      // Annuler la transaction en cas d'erreur
+      await queryRunner.rollbackTransaction();
+      throw error;
+    } finally {
+      // Libérer le queryRunner
+      await queryRunner.release();
     }
-
-    await this.userRepository.remove(user);
   }
 
   async getUnverifiedUsers() {
@@ -188,6 +262,7 @@ export class UserService {
           email: true,
           name: true,
           phone: true,
+          address: true,
           createdAt: true,
         },
       },
@@ -204,6 +279,7 @@ export class UserService {
           email: true,
           name: true,
           phone: true,
+          address: true,
           createdAt: true,
         },
       },

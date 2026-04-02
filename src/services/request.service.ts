@@ -1,8 +1,13 @@
 import { AppDataSource } from "../config/db";
-import { Request, RequestStatus } from "../entities/Request";
-import { Donation, DonationStatus } from "../entities/Donation";
-import { Beneficiary } from "../entities/Beneficiary";
-import { User } from "../entities/User";
+import {
+  User,
+  Beneficiary,
+  Donation,
+  DonationStatus,
+  Request,
+  RequestStatus,
+} from "../entities/index";
+import { sendNotification, NOTIF_TYPES } from "../utils";
 
 export class RequestService {
   private requestRepository = AppDataSource.getRepository(Request);
@@ -53,72 +58,46 @@ export class RequestService {
     return await this.requestRepository.save(request);
   }
 
-  // Approuver une demande
-  async approveRequest(requestId: string) {
+  async updateRequestStatus(
+    requestId: string,
+    status: RequestStatus,
+    user: User,
+  ): Promise<Request> {
     const request = await this.requestRepository.findOne({
       where: { id: requestId },
-      relations: ["donation"],
+      relations: [
+        "donation",
+        "donation.donor",
+        "donation.donor.user",
+        "beneficiary",
+        "beneficiary.user",
+      ],
     });
 
     if (!request) {
       throw new Error("Demande non trouvée");
     }
 
-    if (request.status !== RequestStatus.PENDING) {
-      throw new Error("Cette demande ne peut plus être traitée");
+    // Vérifier que l'utilisateur est le donateur ou admin
+    if (request.donation.donor.user.id !== user.id && user.role !== "admin") {
+      throw new Error("Vous n'êtes pas autorisé");
     }
 
-    request.status = RequestStatus.APPROVED;
+    // Mettre à jour le statut
+    request.status = status;
     request.processedAt = new Date();
 
-    // Mettre à jour la quantité disponible
-    request.donation.availableQuantity -= request.requestedQuantity;
+    await this.requestRepository.save(request);
 
-    if (request.donation.availableQuantity <= 0) {
-      request.donation.status = DonationStatus.COMPLETED;
-    }
+    // Notifier le bénéficiaire
+    await sendNotification(
+      request.beneficiary.user.id,
+      NOTIF_TYPES.REQUEST_APPROVED,
+      `Le statut de votre demande pour "${request.donation.foodType}" est passé à ${status}`,
+      `/requests/${request.id}`,
+    );
 
-    await this.donationRepository.save(request.donation);
-    return await this.requestRepository.save(request);
-  }
-
-  // Rejeter une demande
-  async rejectRequest(requestId: string, notes?: string) {
-    const request = await this.requestRepository.findOne({
-      where: { id: requestId },
-    });
-
-    if (!request) {
-      throw new Error("Demande non trouvée");
-    }
-
-    if (request.status !== RequestStatus.PENDING) {
-      throw new Error("Cette demande ne peut plus être traitée");
-    }
-
-    request.status = RequestStatus.REJECTED;
-    request.processedAt = new Date();
-    if (notes) request.notes = notes;
-
-    return await this.requestRepository.save(request);
-  }
-
-  // Terminer une demande
-  async completeRequest(requestId: string) {
-    const request = await this.requestRepository.findOne({
-      where: { id: requestId },
-    });
-
-    if (!request) {
-      throw new Error("Demande non trouvée");
-    }
-
-    if (request.status !== RequestStatus.APPROVED) {
-      throw new Error("Seule une demande approuvée peut être terminée");
-    }
-
-    request.status = RequestStatus.COMPLETED;
-    return await this.requestRepository.save(request);
+    return request;
   }
 
   // Demandes du bénéficiaire

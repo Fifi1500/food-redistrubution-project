@@ -4,7 +4,6 @@ import { RequestService } from "../services";
 const requestService = new RequestService();
 
 export class RequestController {
-  // ✅ Ajouter "static"
   static async create(req: Request, res: Response) {
     try {
       const user = req.user;
@@ -24,32 +23,26 @@ export class RequestController {
     }
   }
 
-  static async approve(req: Request, res: Response) {
+  static async updateStatus(req: Request, res: Response) {
     try {
       const { id } = req.params;
-      const request = await requestService.approveRequest(id);
-      res.json(request);
-    } catch (error: any) {
-      res.status(400).json({ message: error.message });
-    }
-  }
+      const { status } = req.body;
+      const user = req.user;
 
-  static async reject(req: Request, res: Response) {
-    try {
-      const { id } = req.params;
-      const { notes } = req.body;
-      const request = await requestService.rejectRequest(id, notes);
-      res.json(request);
-    } catch (error: any) {
-      res.status(400).json({ message: error.message });
-    }
-  }
+      if (!user) {
+        return res.status(401).json({ message: "Non authentifié" });
+      }
 
-  static async complete(req: Request, res: Response) {
-    try {
-      const { id } = req.params;
-      const request = await requestService.completeRequest(id);
-      res.json(request);
+      const request = await requestService.updateRequestStatus(
+        id,
+        status,
+        user,
+      );
+
+      res.json({
+        message: `Statut de la demande changé à ${status}`,
+        request,
+      });
     } catch (error: any) {
       res.status(400).json({ message: error.message });
     }

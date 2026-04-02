@@ -37,7 +37,6 @@ export const validate = (req: Request, res: Response, next: NextFunction) => {
 export const registerValidation = [
   //BASIC FIELDS
   body("email").isEmail().withMessage("Email invalide").normalizeEmail(),
-
   body("password")
     .isLength({ min: 6 })
     .withMessage("Mot de passe trop court (min 6 caractères)")

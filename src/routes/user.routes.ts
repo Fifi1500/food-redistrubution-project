@@ -26,7 +26,7 @@ const router = Router();
 // ============ PUBLIC ============
 router.post("/auth/register", registerValidation, AuthController.register);
 router.post("/auth/login", loginValidation, AuthController.login);
-
+router.get("/donations/units", DonationController.getUnits);
 // ============ PROTECTED ============
 router.use(auth);
 
@@ -62,6 +62,8 @@ router.get(
   idParamValidation,
   UserController.getUserById,
 );
+
+//  to activer a user
 router.patch(
   "/users/:id/activate",
   role(["admin"]),
@@ -74,6 +76,7 @@ router.patch(
   idParamValidation,
   UserController.deactivateUser,
 );
+// changer le role de user
 router.patch(
   "/users/:id/role",
   role(["admin"]),
@@ -112,20 +115,24 @@ router.get(
   DonationController.nearby,
 );
 router.get("/donations/my", role(["donor"]), DonationController.myDonations);
+// beneficiaries see details of a donation
 router.get("/donations/:id", idParamValidation, DonationController.getOne);
+
+// donor update status
 router.patch(
   "/donations/:id/status",
   role(["donor"]),
   updateDonationStatusValidation,
   DonationController.updateStatus,
 );
+
 router.delete(
   "/donations/:id",
   role(["donor", "admin"]),
   idParamValidation,
   DonationController.delete,
 );
-router.get("/donations/units", DonationController.getUnits);
+
 // ============ REQUESTS ============
 router.post("/requests", role(["beneficiary"]), RequestController.create);
 router.get("/requests/my", role(["beneficiary"]), RequestController.myRequests);
@@ -134,16 +141,11 @@ router.get(
   role(["donor"]),
   RequestController.receivedRequests,
 );
-router.patch(
-  "/requests/:id/approve",
-  role(["donor"]),
-  RequestController.approve,
-);
-router.patch("/requests/:id/reject", role(["donor"]), RequestController.reject);
-router.patch(
-  "/requests/:id/complete",
-  role(["beneficiary"]),
-  RequestController.complete,
-);
 
+router.patch(
+  "/requests/:id/status",
+  role(["donor"]),
+  idParamValidation,
+  RequestController.updateStatus,
+);
 export default router;
