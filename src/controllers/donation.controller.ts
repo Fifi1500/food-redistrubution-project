@@ -87,7 +87,16 @@ export class DonationController {
     try {
       const { id } = req.params;
       const { status } = req.body;
-      const donation = await donationService.updateDonationStatus(id, status);
+      const user = req.user;
+
+      if (!user) {
+        return res.status(401).json({ message: "Non authentifié" });
+      }
+      const donation = await donationService.updateDonationStatus(
+        id,
+        status,
+        user,
+      );
       res.json({ donation });
     } catch (error: any) {
       res.status(500).json({ message: error.message });

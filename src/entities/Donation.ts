@@ -82,13 +82,12 @@ export class Donation {
   @Column()
   pickupAddress: string;
 
-  // should install PostGIS
-  // @Column({
-  //   type: "geometry",
-  //   spatialFeatureType: "Point",
-  //   srid: 4326,
-  //   nullable: true,
-  // })
+  @Column({
+    type: "geometry",
+    spatialFeatureType: "Point",
+    srid: 4326,
+    nullable: true,
+  })
   pickupLocation: any;
 
   @Column({ default: false })

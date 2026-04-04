@@ -1,6 +1,7 @@
 import bcrypt from "bcryptjs";
 import { io } from "../app";
 import { UnitType } from "../entities/Donation";
+import { NotificationType } from "./types";
 // ============================================
 // 1. VALIDATION
 // ============================================
@@ -93,34 +94,78 @@ export const calculateDistance = (
 // 4. NOTIFICATIONS
 // ============================================
 
-//send to user
+// Structure d'une notification
+export interface NotificationPayload {
+  id: string;
+  type: NotificationType;
+  title: string;
+  message: string;
+  donationId?: string;
+  requestId?: string;
+  link?: string;
+  isRead: boolean;
+  createdAt: Date;
+  data?: any;
+}
+
+// send to user
 export const sendNotification = (
   userId: string,
-  type: string,
+  type: NotificationType,
+  title: string,
   message: string,
-  link?: string,
+  options?: {
+    donationId?: string;
+    requestId?: string;
+    link?: string;
+    data?: any;
+  },
 ) => {
-  const notification = {
-    id: Date.now().toString(36),
+  const notification: NotificationPayload = {
+    id: Date.now().toString(36) + Math.random().toString(36).substr(2),
     type,
+    title,
     message,
-    link,
+    donationId: options?.donationId,
+    requestId: options?.requestId,
+    link:
+      options?.link ||
+      (options?.donationId ? `/donations/${options.donationId}` : undefined),
     isRead: false,
     createdAt: new Date(),
+    data: options?.data,
   };
+
   io.to(`user:${userId}`).emit("notification", notification);
   return notification;
 };
 
-// send to all beneficiaries
 export const broadcastToBeneficiaries = (
-  type: string,
+  type: NotificationType,
+  title: string,
   message: string,
-  data?: any,
+  options?: {
+    donationId?: string;
+    link?: string;
+    data?: any;
+  },
 ) => {
-  io.to("role:beneficiary").emit(type, { message, ...data });
-};
+  const notification: NotificationPayload = {
+    id: Date.now().toString(36) + Math.random().toString(36).substr(2),
+    type,
+    title,
+    message,
+    donationId: options?.donationId,
+    link:
+      options?.link ||
+      (options?.donationId ? `/donations/${options.donationId}` : undefined),
+    isRead: false,
+    createdAt: new Date(),
+    data: options?.data,
+  };
 
+  io.to("role:beneficiary").emit("notification", notification);
+};
 // ============================================
 // 5. FORMATAGE
 // ============================================
@@ -137,10 +182,12 @@ export const formatDate = (date: Date): string => {
 };
 
 //quantity
-export const formatQuantity = (quantity: number, unit: UnitType = UnitType.KG): string => {
+export const formatQuantity = (
+  quantity: number,
+  unit: UnitType = UnitType.KG,
+): string => {
   return `${quantity} ${unit}`;
 };
-
 
 // ============================================
 // 6. PAGINATION
@@ -191,26 +238,29 @@ export const formatError = (error: any): { message: string; code?: string } => {
 // ============================================
 
 export const NOTIF_TYPES = {
-  NEW_DONATION: "new_donation",
-  REQUEST_RECEIVED: "request_received",
-  REQUEST_APPROVED: "request_approved",
-  REQUEST_REJECTED: "request_rejected",
-  PICKUP_REMINDER: "pickup_reminder",
-};
+  NEW_DONATION: NotificationType.NEW_DONATION,
+  DONATION_STATUS_CHANGED: NotificationType.DONATION_STATUS_CHANGED,
+  REQUEST_RECEIVED: NotificationType.REQUEST_RECEIVED,
+  REQUEST_STATUS_CHANGED: NotificationType.REQUEST_STATUS_CHANGED,
+  REQUEST_APPROVED: NotificationType.REQUEST_APPROVED,
+  REQUEST_REJECTED: NotificationType.REQUEST_REJECTED,
+  PICKUP_REMINDER: NotificationType.PICKUP_REMINDER,
+} as const;
+
 // ============================================
 // /LISTE OF UNITS
 // ============================================
 
 export const UNITS_LIST = [
-  { value: UnitType.KG, label: 'Kilogrammes (kg)' },
-  { value: UnitType.G, label: 'Grammes (g)' },
-  { value: UnitType.L, label: 'Litres (L)' },
-  { value: UnitType.ML, label: 'Millilitres (mL)' },
-  { value: UnitType.PIECES, label: 'Pièces' },
-  { value: UnitType.UNITS, label: 'Unités' },
-  { value: UnitType.BOXES, label: 'Cartons' },
-  { value: UnitType.BAGS, label: 'Sacs' },
-  { value: UnitType.PACKS, label: 'Paquets' },
-  { value: UnitType.TRAYS, label: 'Plateaux' },
-  { value: UnitType.CONTAINERS, label: 'Barquettes' }
+  { value: UnitType.KG, label: "Kilogrammes (kg)" },
+  { value: UnitType.G, label: "Grammes (g)" },
+  { value: UnitType.L, label: "Litres (L)" },
+  { value: UnitType.ML, label: "Millilitres (mL)" },
+  { value: UnitType.PIECES, label: "Pièces" },
+  { value: UnitType.UNITS, label: "Unités" },
+  { value: UnitType.BOXES, label: "Cartons" },
+  { value: UnitType.BAGS, label: "Sacs" },
+  { value: UnitType.PACKS, label: "Paquets" },
+  { value: UnitType.TRAYS, label: "Plateaux" },
+  { value: UnitType.CONTAINERS, label: "Barquettes" },
 ];

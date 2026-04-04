@@ -19,6 +19,7 @@ import {
   DonationController,
   RequestController,
   UserController,
+  NotificationController,
 } from "../controllers";
 
 const router = Router();
@@ -149,3 +150,16 @@ router.patch(
   RequestController.updateStatus,
 );
 export default router;
+
+// Notifications
+router.get("/notifications", auth, NotificationController.getMyNotifications);
+router.patch(
+  "/notifications/:id/read",
+  auth,
+  NotificationController.markAsRead,
+);
+router.patch(
+  "/notifications/read-all",
+  auth,
+  NotificationController.markAllAsRead,
+);

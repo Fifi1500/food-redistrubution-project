@@ -42,14 +42,15 @@ export class User {
 
   @Column({ nullable: true })
   address: string;
-  // SHOUL I?STALL PostGIS
-  // @Column({
-  //   type: "geometry",
-  //   spatialFeatureType: "Point",
-  //   srid: 4326,
-  //   nullable: true,
-  // })
-  location: { type: "Point"; coordinates: [number, number] }; // [longitude, latitude]
+
+  @Column({
+    type: "geometry",
+    spatialFeatureType: "Point",
+    srid: 4326,
+    nullable: true,
+  })
+  location: { type: "Point"; coordinates: [number, number] };
+
   @Column({ default: true })
   isActive: boolean;
 

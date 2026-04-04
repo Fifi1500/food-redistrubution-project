@@ -6,19 +6,15 @@ import {
   CreateDateColumn,
 } from "typeorm";
 import { User } from "./User";
-
-export enum NotificationType {
-  NEW_DONATION = "new_donation",
-  REQUEST_RECEIVED = "request_received",
-  REQUEST_APPROVED = "request_approved",
-  REQUEST_REJECTED = "request_rejected",
-  REMINDER = "reminder",
-}
+import { NotificationType } from "../utils/types";
 
 @Entity("notifications")
 export class Notification {
   @PrimaryGeneratedColumn("uuid")
   id: string;
+
+  @Column()
+  userId: string;
 
   @ManyToOne(() => User, (user) => user.id)
   user: User;
@@ -28,6 +24,9 @@ export class Notification {
     enum: NotificationType,
   })
   type: NotificationType;
+
+  @Column()
+  title: string;
 
   @Column()
   message: string;

@@ -48,15 +48,15 @@ export enum RequestStatus {
   CANCELLED = "cancelled",
 }
 
-// Type de notification
 export enum NotificationType {
   NEW_DONATION = "new_donation",
+  DONATION_STATUS_CHANGED = "donation_status_changed",
   REQUEST_RECEIVED = "request_received",
+  REQUEST_STATUS_CHANGED = "request_status_changed",
   REQUEST_APPROVED = "request_approved",
   REQUEST_REJECTED = "request_rejected",
-  REMINDER = "reminder",
+  PICKUP_REMINDER = "pickup_reminder",
 }
-
 // units for quantity
 export type UnitType =
   | "kg"

@@ -14,7 +14,6 @@ import {
   isValidQuantity,
   isValidAddress,
   sendNotification,
-  broadcastToBeneficiaries,
   formatDate,
   NOTIF_TYPES,
   getPagination,
@@ -63,6 +62,11 @@ export class DonationService {
   private donationRepository = AppDataSource.getRepository(Donation);
   private donorRepository = AppDataSource.getRepository(Donor);
   private requestRepository = AppDataSource.getRepository(Request);
+  private userRepository = AppDataSource.getRepository(User); // ✅ AJOUTÉ
+
+  // ============================================
+  // CREATE DONATION
+  // ============================================
 
   async createDonation(
     user: User,
@@ -110,6 +114,7 @@ export class DonationService {
     if (!isValidUnit(data.unit)) {
       throw new Error("Unité invalide");
     }
+
     // 3. Créer le don
     const donationData = {
       donor: donor,
@@ -132,15 +137,76 @@ export class DonationService {
     const savedDonation = await this.donationRepository.save(donation);
 
     // 4. Notifier les bénéficiaires à proximité
-    const message = `🍽️ Nouveau don disponible : ${savedDonation.foodType}  (${formatQuantity(savedDonation.totalQuantity, savedDonation.unit)}) à ${savedDonation.pickupAddress}`;
-    broadcastToBeneficiaries(NOTIF_TYPES.NEW_DONATION, message, {
-      donation: savedDonation,
-    });
+    const title = "🍽️ Nouveau don disponible près de chez vous !";
+    const message = `${savedDonation.foodType} (${formatQuantity(savedDonation.totalQuantity, savedDonation.unit)}) à ${savedDonation.pickupAddress}`;
+
+    await this.notifyNearbyBeneficiaries(savedDonation, title, message);
 
     return savedDonation;
   }
 
-  // get units
+  // ============================================
+  // NOTIFY NEARBY BENEFICIARIES
+  // ============================================
+
+  /**
+   * Notifier les bénéficiaires à proximité d'un don
+   */
+  private async notifyNearbyBeneficiaries(
+    donation: Donation,
+    title: string,
+    message: string,
+  ): Promise<void> {
+    // Récupérer les coordonnées du don
+    const [lng, lat] = donation.pickupLocation.coordinates;
+    const radiusKm = 10; // Rayon de 10 km
+
+    // Requête PostGIS pour trouver les bénéficiaires à proximité
+    const nearbyBeneficiaries = await this.userRepository
+      .createQueryBuilder("user")
+      .innerJoin("user.beneficiaryProfile", "beneficiary")
+      .where("user.role = :role", { role: "beneficiary" })
+      .andWhere("user.isActive = :active", { active: true })
+      .andWhere(
+        `ST_DWithin(
+          user.location,
+          ST_SetSRID(ST_MakePoint(:lng, :lat), 4326),
+          :radius
+        )`,
+        { lng, lat, radius: radiusKm * 1000 },
+      )
+      .select(["user.id"])
+      .getMany();
+
+    console.log(
+      `📍 ${nearbyBeneficiaries.length} bénéficiaires trouvés dans un rayon de ${radiusKm} km`,
+    );
+
+    // Envoyer la notification à chaque bénéficiaire
+    for (const beneficiary of nearbyBeneficiaries) {
+      await sendNotification(
+        beneficiary.id,
+        NOTIF_TYPES.NEW_DONATION,
+        title,
+        message,
+        {
+          donationId: donation.id,
+          link: `/donations/${donation.id}`,
+          data: {
+            foodType: donation.foodType,
+            quantity: donation.totalQuantity,
+            unit: donation.unit,
+            pickupAddress: donation.pickupAddress,
+          },
+        },
+      );
+    }
+  }
+
+  // ============================================
+  // GET UNITS
+  // ============================================
+
   async getUnits(): Promise<{ value: string; label: string }[]> {
     return [
       { value: "kg", label: "Kilogrammes (kg)" },
@@ -155,9 +221,10 @@ export class DonationService {
     ];
   }
 
-  //Get donations
+  // ============================================
+  // GET AVAILABLE DONATIONS
+  // ============================================
 
-  //available
   async getAvailableDonations(
     page: number = 1,
     limit: number = 20,
@@ -212,7 +279,10 @@ export class DonationService {
     return paginatedResponse(formattedDonations, total, page, limit);
   }
 
-  //nearby
+  // ============================================
+  // GET NEARBY DONATIONS
+  // ============================================
+
   async getNearbyDonations(
     lat: number,
     lng: number,
@@ -292,7 +362,10 @@ export class DonationService {
     return paginatedResponse(formattedDonations, total, page, limitNum);
   }
 
-  //by id
+  // ============================================
+  // GET DONATION BY ID
+  // ============================================
+
   async getDonationById(id: string): Promise<Donation | null> {
     const donation = await this.donationRepository.findOne({
       where: { id },
@@ -317,7 +390,10 @@ export class DonationService {
     return donation;
   }
 
-  //of a donor
+  // ============================================
+  // GET DONOR DONATIONS
+  // ============================================
+
   async getDonorDonations(user: User, page: number = 1, limit: number = 20) {
     const donor = await this.donorRepository.findOne({
       where: { user: { id: user.id } },
@@ -358,7 +434,10 @@ export class DonationService {
     return paginatedResponse(formattedDonations, total, page, limit);
   }
 
-  //expired
+  // ============================================
+  // GET EXPIRED DONATIONS
+  // ============================================
+
   async getExpiredDonations(): Promise<Donation[]> {
     return await this.donationRepository.find({
       where: {
@@ -369,10 +448,14 @@ export class DonationService {
     });
   }
 
-  //update status
+  // ============================================
+  // UPDATE DONATION STATUS
+  // ============================================
+
   async updateDonationStatus(
     id: string,
     status: DonationStatus,
+    user: User,
   ): Promise<Donation | null> {
     const donation = await this.getDonationById(id);
 
@@ -380,24 +463,80 @@ export class DonationService {
       throw new Error("Don non trouvé");
     }
 
+    // Vérifier que l'utilisateur est le propriétaire
+    if (donation.donor?.user?.id !== user.id && user.role !== "admin") {
+      throw new Error("Vous n'êtes pas autorisé à modifier ce don");
+    }
+
+    const oldStatus = donation.status;
     donation.status = status;
     await this.donationRepository.save(donation);
 
-    // Notifier donor
+    // 1. NOTIFIER LE DONATEUR
     if (donation.donor?.user) {
-      const message = `Le statut de votre don "${donation.foodType}" est passé à ${status}`;
+      const statusMessages: Record<string, string> = {
+        available: "disponible",
+        completed: "terminé",
+        expired: "expiré",
+        cancelled: "annulé",
+      };
+
       await sendNotification(
         donation.donor.user.id,
-        NOTIF_TYPES.NEW_DONATION,
-        message,
-        `/donations/${id}`,
+        NOTIF_TYPES.DONATION_STATUS_CHANGED,
+        "📢 Statut de votre don modifié",
+        `Le statut de votre don "${donation.foodType}" est passé à ${statusMessages[status] || status}`,
+        {
+          donationId: id,
+          link: `/donations/${id}`,
+          data: { oldStatus, newStatus: status, foodType: donation.foodType },
+        },
       );
+    }
+
+    // 2. NOTIFIER LES BÉNÉFICIAIRES CONCERNÉS
+    if (
+      oldStatus !== status &&
+      donation.requests &&
+      donation.requests.length > 0
+    ) {
+      const beneficiaryIds = [
+        ...new Set(
+          donation.requests
+            .filter((r) => r.beneficiary?.user?.id)
+            .map((r) => r.beneficiary.user.id),
+        ),
+      ];
+
+      const statusMessages: Record<string, string> = {
+        available: "de nouveau disponible",
+        completed: "terminé",
+        expired: "expiré",
+        cancelled: "annulé",
+      };
+
+      for (const beneficiaryId of beneficiaryIds) {
+        await sendNotification(
+          beneficiaryId,
+          NOTIF_TYPES.DONATION_STATUS_CHANGED,
+          "📢 Statut du don modifié",
+          `Le don "${donation.foodType}" est maintenant ${statusMessages[status] || status}`,
+          {
+            donationId: id,
+            link: `/donations/${id}`,
+            data: { oldStatus, newStatus: status, foodType: donation.foodType },
+          },
+        );
+      }
     }
 
     return donation;
   }
 
-  //update available quantity
+  // ============================================
+  // UPDATE AVAILABLE QUANTITY
+  // ============================================
+
   async updateAvailableQuantity(
     donationId: string,
     quantityToReduce: number,
@@ -425,7 +564,10 @@ export class DonationService {
     return donation;
   }
 
-  //delete donation
+  // ============================================
+  // DELETE DONATION
+  // ============================================
+
   async deleteDonation(id: string, user: User): Promise<void> {
     const donation = await this.donationRepository.findOne({
       where: { id },
@@ -458,7 +600,10 @@ export class DonationService {
     await this.donationRepository.remove(donation);
   }
 
-  //change status to expired
+  // ============================================
+  // MARK EXPIRED DONATIONS
+  // ============================================
+
   async markExpiredDonations(): Promise<number> {
     const result = await this.donationRepository
       .createQueryBuilder()
@@ -471,7 +616,10 @@ export class DonationService {
     return result.affected || 0;
   }
 
-  //static donation for donor
+  // ============================================
+  // GET DONOR STATS
+  // ============================================
+
   async getDonorStats(user: User): Promise<any> {
     const donor = await this.donorRepository.findOne({
       where: { user: { id: user.id } },
@@ -514,7 +662,10 @@ export class DonationService {
     };
   }
 
-  //donation by key word
+  // ============================================
+  // SEARCH DONATIONS
+  // ============================================
+
   async searchDonations(keyword: string, page: number = 1, limit: number = 20) {
     const { skip } = getPagination(page, limit);
 

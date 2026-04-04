@@ -132,13 +132,6 @@ export class AuthService {
     // 7. Ne pas renvoyer le mot de passe
     const { password, ...userWithoutPassword } = user;
 
-    // 8. Envoyer une notification de bienvenue
-    await sendNotification(
-      user.id,
-      NOTIF_TYPES.NEW_DONATION,
-      `Bienvenue ${user.name} sur Food Surplus !`,
-    );
-
     return { user: userWithoutPassword, token };
   }
 
