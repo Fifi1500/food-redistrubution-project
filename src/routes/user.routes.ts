@@ -20,7 +20,9 @@ import {
   RequestController,
   UserController,
   NotificationController,
+  StatsController,
 } from "../controllers";
+import { getAllWilayas, WILAYAS } from "../utils/myFanc";
 
 const router = Router();
 
@@ -28,6 +30,21 @@ const router = Router();
 router.post("/auth/register", registerValidation, AuthController.register);
 router.post("/auth/login", loginValidation, AuthController.login);
 router.get("/donations/units", DonationController.getUnits);
+router.get("/wilayas", (req, res) => {
+  try {
+    const wilayas = getAllWilayas();
+    res.json({
+      success: true,
+      count: wilayas.length,
+      wilayas,
+    });
+  } catch (error: any) {
+    res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+});
 // ============ PROTECTED ============
 router.use(auth);
 
@@ -149,7 +166,6 @@ router.patch(
   idParamValidation,
   RequestController.updateStatus,
 );
-export default router;
 
 // Notifications
 router.get("/notifications", auth, NotificationController.getMyNotifications);
@@ -163,3 +179,88 @@ router.patch(
   auth,
   NotificationController.markAllAsRead,
 );
+
+// ============================================
+// stats and  IMPACT
+// ============================================
+
+router.get(
+  "/stats/dashboard",
+  role(["admin"]),
+  StatsController.getDashboardStats,
+);
+router.get("/stats/quick", role(["admin"]), StatsController.getQuickStats);
+router.get(
+  "/stats/activities",
+  role(["admin"]),
+  StatsController.getRecentActivities,
+);
+router.get("/stats/impact", role(["admin"]), StatsController.getOverallImpact);
+router.get(
+  "/stats/impact/period",
+  role(["admin"]),
+  StatsController.getImpactByPeriod,
+);
+router.get(
+  "/stats/impact/wilaya",
+  role(["admin"]),
+  StatsController.getImpactByWilaya,
+);
+router.get("/stats/top-donors", role(["admin"]), StatsController.getTopDonors);
+router.get(
+  "/stats/top-beneficiaries",
+  role(["admin"]),
+  StatsController.getTopBeneficiaries,
+);
+
+export default router;
+
+// Filtrer les dons par wilaya
+router.get(
+  "/donations/wilaya/:wilaya",
+  paginationValidation,
+  DonationController.getByWilaya,
+);
+
+// Liste des wilayas
+router.get("/wilayas", (req, res) => {
+  res.json({ wilayas: Object.values(WILAYAS) });
+});
+
+import { DistributionController } from "../controllers";
+
+// ============================================
+// DISTRIBUTIONS (Suivi des redistributions)
+// ============================================
+
+router.get("/distributions", role(["admin"]), DistributionController.getAll);
+router.get(
+  "/distributions/:id",
+  role(["admin"]),
+  DistributionController.getOne,
+);
+router.get(
+  "/distributions/stats",
+  role(["admin"]),
+  DistributionController.getStats,
+);
+router.patch(
+  "/distributions/:id/status",
+  role(["donor", "admin"]),
+  DistributionController.updateStatus,
+);
+router.post(
+  "/distributions/:id/cancel",
+  role(["donor", "admin"]),
+  DistributionController.cancel,
+);
+
+import { PDFController } from "../controllers";
+
+// ============================================
+// EXPORT PDF
+// ============================================
+
+router.get("/pdf/donations", role(["admin"]), PDFController.exportDonationsPDF);
+router.get("/pdf/users", role(["admin"]), PDFController.exportUsersPDF);
+router.get("/pdf/stats", role(["admin"]), PDFController.exportStatsPDF);

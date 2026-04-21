@@ -46,6 +46,7 @@ export enum RequestStatus {
   REJECTED = "rejected",
   COMPLETED = "completed",
   CANCELLED = "cancelled",
+  COLLECTED = "collected",
 }
 
 export enum NotificationType {

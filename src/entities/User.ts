@@ -39,6 +39,12 @@ export class User {
     default: UserRole.BENEFICIARY,
   })
   role: UserRole;
+  @Column({
+    type: "varchar",
+    length: 2,
+    nullable: true,
+  })
+  wilaya: string;
 
   @Column({ nullable: true })
   address: string;

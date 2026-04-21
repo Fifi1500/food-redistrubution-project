@@ -79,6 +79,9 @@ export class Donation {
   @Column({ type: "timestamp" })
   expirationDate: Date;
 
+  @Column({ type: "varchar", length: 2, nullable: true })
+  wilaya: string;
+
   @Column()
   pickupAddress: string;
 

@@ -6,6 +6,8 @@ import {
   ValidationError,
 } from "express-validator";
 import { Request, Response, NextFunction } from "express";
+import { isValidWilaya } from "../utils";
+import { WILAYAS } from "../utils/myFanc";
 
 // Middleware de validation
 export const validate = (req: Request, res: Response, next: NextFunction) => {
@@ -35,7 +37,7 @@ export const validate = (req: Request, res: Response, next: NextFunction) => {
 };
 
 export const registerValidation = [
-  //BASIC FIELDS
+  // BASIC FIELDS
   body("email").isEmail().withMessage("Email invalide").normalizeEmail(),
   body("password")
     .isLength({ min: 6 })
@@ -55,7 +57,7 @@ export const registerValidation = [
     .isIn(["donor", "beneficiary", "admin"])
     .withMessage("Rôle invalide"),
 
-  //OPTIONAL FIELDS
+  // OPTIONAL FIELDS
   body("phone")
     .optional()
     .matches(/^[0-9+\s]{8,15}$/)
@@ -63,6 +65,15 @@ export const registerValidation = [
       "Numéro de téléphone invalide (ex: 0612345678 ou +33123456789)",
     ),
 
+  // Validation pour wilaya
+  body("wilaya")
+    .optional()
+    .isString()
+    .withMessage("La wilaya doit être un code (ex: 16, 31)")
+    .custom((value) => isValidWilaya(value))
+    .withMessage("Code wilaya invalide (01 à 58)"),
+
+  // ✅ UNE SEULE VALIDATION location (garde celle-ci)
   body("location")
     .optional()
     .isObject()
@@ -76,16 +87,19 @@ export const registerValidation = [
       }
       return false;
     })
-    .withMessage("Coordonnées GPS invalides"),
+    .withMessage(
+      "Coordonnées GPS invalides (ex: { type: 'Point', coordinates: [lng, lat] })",
+    ),
 
   body("address")
-    .optional()
+    .notEmpty()
     .isString()
     .isLength({ min: 5 })
     .withMessage("Adresse trop courte (min 5 caractères)"),
 
-  // DONOR VALIDATION
+  // ❌ SUPPRIME cette deuxième validation location (vers ligne 80-90)
 
+  // DONOR VALIDATION
   body("organizationName")
     .if(body("role").equals("donor"))
     .notEmpty()
@@ -107,25 +121,7 @@ export const registerValidation = [
     .matches(/^[0-9+\s]{8,15}$/)
     .withMessage("Numéro de téléphone invalide"),
 
-  body("location")
-    .if(body("role").equals("donor"))
-    .notEmpty()
-    .withMessage("Localisation requise pour donor")
-    .isObject()
-    .custom((value) => {
-      if (value && value.coordinates) {
-        const [lng, lat] = value.coordinates;
-        return lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180;
-      }
-      return false;
-    })
-    .withMessage(
-      "Coordonnées GPS invalides (ex: { type: 'Point', coordinates: [lng, lat] })",
-    ),
-
-  // =========================
-  //BENEFICIARY VALIDATION
-
+  // BENEFICIARY VALIDATION
   body("organizationType")
     .if(body("role").equals("beneficiary"))
     .isIn(["association", "individual", "other"])

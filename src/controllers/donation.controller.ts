@@ -119,4 +119,21 @@ export class DonationController {
       res.status(500).json({ message: error.message });
     }
   }
+
+  static async getByWilaya(req: Request, res: Response) {
+    try {
+      const { wilaya } = req.params;
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+
+      const result = await donationService.getDonationsByWilaya(
+        wilaya,
+        page,
+        limit,
+      );
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  }
 }

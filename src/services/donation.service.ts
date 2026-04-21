@@ -390,6 +390,28 @@ export class DonationService {
     return donation;
   }
 
+  /*
+   * Get donations by wilaya
+   */
+  async getDonationsByWilaya(
+    wilaya: string,
+    page: number = 1,
+    limit: number = 20,
+  ) {
+    const { skip } = getPagination(page, limit);
+
+    const [donations, total] = await this.donationRepository.findAndCount({
+      where: {
+        wilaya: wilaya as any,
+        status: DonationStatus.AVAILABLE,
+      },
+      relations: ["donor", "donor.user"],
+      skip,
+      take: limit,
+    });
+
+    return paginatedResponse(donations, total, page, limit);
+  }
   // ============================================
   // GET DONOR DONATIONS
   // ============================================
