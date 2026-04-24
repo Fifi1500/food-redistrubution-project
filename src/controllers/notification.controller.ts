@@ -1,5 +1,6 @@
 import { Request, Response } from "express";
 import { NotificationService } from "../services";
+import { NotificationType } from "../utils/types";
 
 const notificationService = new NotificationService();
 
@@ -78,6 +79,65 @@ export class NotificationController {
 
       await notificationService.deleteNotification(id, user.id);
       res.json({ message: "Notification supprimée" });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  }
+
+  static async getAllNotifications(req: Request, res: Response) {
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 50;
+
+      const result = await notificationService.getAllNotifications(page, limit);
+
+      res.json({
+        success: true,
+        ...result,
+      });
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  }
+
+  static async sendNotification(req: Request, res: Response) {
+    try {
+      const { title, message, target } = req.body;
+      const admin = req.user;
+
+      if (!title || !message) {
+        return res.status(400).json({ message: "Titre et message requis" });
+      }
+
+      let recipients: string[] = [];
+
+      if (target === "donors") {
+        const donors = await notificationService.getAllDonors();
+        recipients = donors.map((d) => d.id);
+      } else if (target === "beneficiaries") {
+        const beneficiaries = await notificationService.getAllBeneficiaries();
+        recipients = beneficiaries.map((b) => b.id);
+      } else {
+        const allUsers = await notificationService.getAllUsers();
+        recipients = allUsers.map((u) => u.id);
+      }
+
+      // Envoyer les notifications
+      for (const userId of recipients) {
+        await notificationService.createAndSend(
+          userId,
+          "admin_notification" as NotificationType,
+          title,
+          message,
+          { link: "/notifications" },
+        );
+      }
+
+      res.json({
+        success: true,
+        sentCount: recipients.length,
+        message: `Notification envoyée à ${recipients.length} utilisateur(s)`,
+      });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }

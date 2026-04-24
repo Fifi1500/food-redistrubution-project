@@ -57,6 +57,7 @@ export enum NotificationType {
   REQUEST_APPROVED = "request_approved",
   REQUEST_REJECTED = "request_rejected",
   PICKUP_REMINDER = "pickup_reminder",
+  ADMIN_NOTIFICATION = "admin_notification",
 }
 // units for quantity
 export type UnitType =

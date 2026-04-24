@@ -45,6 +45,7 @@ router.get("/wilayas", (req, res) => {
     });
   }
 });
+
 // ============ PROTECTED ============
 router.use(auth);
 
@@ -213,8 +214,6 @@ router.get(
   StatsController.getTopBeneficiaries,
 );
 
-export default router;
-
 // Filtrer les dons par wilaya
 router.get(
   "/donations/wilaya/:wilaya",
@@ -264,3 +263,30 @@ import { PDFController } from "../controllers";
 router.get("/pdf/donations", role(["admin"]), PDFController.exportDonationsPDF);
 router.get("/pdf/users", role(["admin"]), PDFController.exportUsersPDF);
 router.get("/pdf/stats", role(["admin"]), PDFController.exportStatsPDF);
+
+// ============================================
+// ADMIN NOTIFICATIONS
+// ============================================
+
+// Envoyer une notification (admin)
+router.post(
+  "/notifications/send",
+  role(["admin"]),
+  NotificationController.sendNotification,
+);
+
+// Récupérer l'historique des notifications
+router.get(
+  "/notifications/history",
+  role(["admin"]),
+  NotificationController.getAllNotifications,
+);
+
+// Supprimer une notification de l'historique
+router.delete(
+  "/notifications/:id",
+  role(["admin"]),
+  NotificationController.deleteNotification,
+);
+
+export default router;

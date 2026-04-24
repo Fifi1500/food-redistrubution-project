@@ -245,6 +245,7 @@ export const NOTIF_TYPES = {
   REQUEST_APPROVED: NotificationType.REQUEST_APPROVED,
   REQUEST_REJECTED: NotificationType.REQUEST_REJECTED,
   PICKUP_REMINDER: NotificationType.PICKUP_REMINDER,
+  ADMIN_NOTIFICATION: NotificationType.ADMIN_NOTIFICATION,
 } as const;
 
 // ============================================
