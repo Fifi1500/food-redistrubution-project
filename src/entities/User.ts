@@ -36,9 +36,9 @@ export class User {
   @Column({
     type: "enum",
     enum: UserRole,
-    default: UserRole.BENEFICIARY,
   })
   role: UserRole;
+
   @Column({
     type: "varchar",
     length: 2,
@@ -55,10 +55,17 @@ export class User {
     srid: 4326,
     nullable: true,
   })
-  location: { type: "Point"; coordinates: [number, number] };
+  location: { type: "Point"; coordinates: [number, number] } | null;
 
   @Column({ default: true })
   isActive: boolean;
+
+  // ✅ Version simplifiée
+  @Column({ nullable: true })
+  resetToken: string;
+
+  @Column({ nullable: true })
+  resetTokenExpires: Date;
 
   @CreateDateColumn()
   createdAt: Date;

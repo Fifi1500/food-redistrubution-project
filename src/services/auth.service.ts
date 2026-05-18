@@ -15,6 +15,7 @@ import {
   isValidEmail,
   isValidPassword,
   isValidPhone,
+  geocodeAddress,
   formatError,
   sendNotification,
   NOTIF_TYPES,
@@ -31,6 +32,10 @@ export interface RegisterData {
   phone: string;
   role: UserRole;
   address: string;
+  location?: {
+    type: "Point";
+    coordinates: [number, number];
+  };
   // Pour les donateurs
   organizationName?: string;
   businessType?: BusinessType;
@@ -90,7 +95,21 @@ export class AuthService {
     // 3. Hasher le mot de passe
     const hashedPassword = await hashPassword(data.password);
 
-    // 4. Créer l'utilisateur de base
+    // 4. Résoudre la localisation si nécessaire
+    let location: { type: "Point"; coordinates: [number, number] } | null =
+      data.location || null;
+
+    if (!location && data.address) {
+      const geocoded = await geocodeAddress(data.address);
+      if (geocoded) {
+        location = {
+          type: "Point",
+          coordinates: [geocoded.lng, geocoded.lat],
+        };
+      }
+    }
+
+    // 5. Créer l'utilisateur de base
     const user = new User();
     user.email = data.email;
     user.password = hashedPassword;
@@ -98,6 +117,7 @@ export class AuthService {
     user.phone = data.phone;
     user.role = data.role;
     user.address = data.address;
+    user.location = location;
     user.isActive = true;
 
     await this.userRepository.save(user);

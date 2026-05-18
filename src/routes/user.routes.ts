@@ -46,6 +46,11 @@ router.get("/wilayas", (req, res) => {
   }
 });
 
+// Demande de réinitialisation
+router.post("/auth/forgot-password", AuthController.forgotPassword);
+
+// Réinitialisation avec token
+router.post("/auth/reset-password", AuthController.resetPassword);
 // ============ PROTECTED ============
 router.use(auth);
 

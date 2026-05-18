@@ -71,7 +71,7 @@ export const registerValidation = [
     .isString()
     .withMessage("La wilaya doit être un code (ex: 16, 31)")
     .custom((value) => isValidWilaya(value))
-    .withMessage("Code wilaya invalide (01 à 58)"),
+    .withMessage("Code wilaya invalide (01 à 69)"),
 
   // ✅ UNE SEULE VALIDATION location (garde celle-ci)
   body("location")
@@ -194,8 +194,7 @@ export const createDonationValidation = [
     .withMessage("L'adresse doit contenir entre 5 et 500 caractères"),
 
   body("pickupLocation")
-    .notEmpty()
-    .withMessage("Les coordonnées GPS sont requises")
+    .optional()
     .isObject()
     .withMessage("Les coordonnées doivent être un objet")
     .custom((value) => {
@@ -243,6 +242,13 @@ export const createDonationValidation = [
     .optional()
     .isURL()
     .withMessage("L'URL de l'image doit être une URL valide"),
+
+  body("wilaya")
+    .optional()
+    .isString()
+    .withMessage("Le code wilaya doit être une chaîne de caractères")
+    .custom((value) => isValidWilaya(value))
+    .withMessage("Code wilaya invalide (01 à 69)"),
 
   validate,
 ];

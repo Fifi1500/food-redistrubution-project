@@ -13,6 +13,7 @@ import {
   isValidCoordinates,
   isValidQuantity,
   isValidAddress,
+  geocodeAddress,
   sendNotification,
   formatDate,
   NOTIF_TYPES,
@@ -35,10 +36,11 @@ export interface CreateDonationData {
   unit: UnitType;
   expirationDate: Date;
   pickupAddress: string;
-  pickupLocation: {
+  pickupLocation?: {
     type: "Point";
     coordinates: [number, number]; // [longitude, latitude]
   };
+  wilaya?: string; // Code wilaya (ex: "16", "31")
   requiresRefrigeration?: boolean;
   handlingInstructions?: string;
   imageUrl?: string;
@@ -102,11 +104,22 @@ export class DonationService {
       throw new Error("L'adresse de retrait est requise");
     }
 
-    if (!data.pickupLocation || !data.pickupLocation.coordinates) {
-      throw new Error("Les coordonnées GPS sont requises");
+    let pickupLocation = data.pickupLocation;
+
+    if (!pickupLocation || !pickupLocation.coordinates) {
+      const geocoded = await geocodeAddress(data.pickupAddress);
+      if (!geocoded) {
+        throw new Error(
+          "Impossible de géocoder l'adresse de retrait. Veuillez vérifier l'adresse ou renseigner les coordonnées GPS.",
+        );
+      }
+      pickupLocation = {
+        type: "Point",
+        coordinates: [geocoded.lng, geocoded.lat],
+      };
     }
 
-    const [lng, lat] = data.pickupLocation.coordinates;
+    const [lng, lat] = pickupLocation.coordinates;
     if (!isValidCoordinates(lat, lng)) {
       throw new Error("Coordonnées GPS invalides");
     }
@@ -126,14 +139,15 @@ export class DonationService {
       unit: data.unit,
       expirationDate: data.expirationDate,
       pickupAddress: data.pickupAddress,
-      pickupLocation: data.pickupLocation,
+      pickupLocation: pickupLocation,
+      wilaya: data.wilaya,
       requiresRefrigeration: data.requiresRefrigeration || false,
       handlingInstructions: data.handlingInstructions,
       imageUrl: data.imageUrl,
       status: DonationStatus.AVAILABLE,
     };
 
-    const donation = this.donationRepository.create(donationData);
+    const donation = this.donationRepository.create(donationData) as Donation;
     const savedDonation = await this.donationRepository.save(donation);
 
     // 4. Notifier les bénéficiaires à proximité

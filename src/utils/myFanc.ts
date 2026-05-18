@@ -1,4 +1,5 @@
 import bcrypt from "bcryptjs";
+import https from "https";
 import { io } from "../app";
 import { UnitType } from "../entities/Donation";
 import { NotificationType } from "./types";
@@ -34,6 +35,61 @@ export const isValidQuantity = (quantity: number): boolean => {
 export const isValidAddress = (address: string): string | boolean => {
   return address && address.trim().length >= 5;
 };
+
+export const geocodeAddress = async (
+  address: string,
+): Promise<{ lat: number; lng: number } | null> => {
+  if (!address || !address.trim()) {
+    return null;
+  }
+
+  const params = new URLSearchParams({
+    format: "json",
+    q: address,
+    countrycodes: "dz",
+    limit: "1",
+    addressdetails: "0",
+  });
+
+  const url = `https://nominatim.openstreetmap.org/search?${params.toString()}`;
+
+  return new Promise((resolve, reject) => {
+    https
+      .get(
+        url,
+        {
+          headers: {
+            "User-Agent": "FoodRedistributionBackend/1.0 (contact@example.com)",
+          },
+        },
+        (res) => {
+          let data = "";
+          res.setEncoding("utf8");
+          res.on("data", (chunk) => {
+            data += chunk;
+          });
+          res.on("end", () => {
+            try {
+              const json = JSON.parse(data);
+              if (Array.isArray(json) && json.length > 0) {
+                const { lat, lon } = json[0] as {
+                  lat: string;
+                  lon: string;
+                };
+                resolve({ lat: parseFloat(lat), lng: parseFloat(lon) });
+              } else {
+                resolve(null);
+              }
+            } catch (error) {
+              reject(error);
+            }
+          });
+        },
+      )
+      .on("error", reject);
+  });
+};
+
 //name
 export const isValidName = (name: string): string | boolean => {
   return name && name.trim().length >= 2;
@@ -329,6 +385,17 @@ export const WILAYAS = {
   "56": "Djanet",
   "57": "El Meghaier",
   "58": "El Menia",
+  "59": "Aflou",
+  "60": "El Abiodh Sidi Cheikh",
+  "61": "El Aricha",
+  "62": "El Kantara",
+  "63": "Barika",
+  "64": "Bousaâda",
+  "65": "Bir El Ater",
+  "66": "Ksar El Boukhari",
+  "67": "Ksar Chellala",
+  "68": "Aïn Oussera",
+  "69": "Messaad",
 };
 
 export const getWilayaName = (code: string): string => {
