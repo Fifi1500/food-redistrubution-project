@@ -182,10 +182,10 @@ router.patch(
 
 // Beneficiary cancels their own pending request
 router.delete(
-  "/requests/:id",
+  "/requests/:id/cancel",
   role(["beneficiary"]),
   idParamValidation,
-  RequestController.cancel,
+  RequestController.cancelRequest,
 );
 
 // Notifications

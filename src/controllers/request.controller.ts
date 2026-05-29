@@ -74,7 +74,7 @@ export class RequestController {
     }
   }
 
-  static async cancel(req: Request, res: Response) {
+  static async cancelRequest(req: Request, res: Response) {
     try {
       const user = req.user;
       if (!user) return res.status(401).json({ message: "Not authenticated" });

@@ -31,10 +31,12 @@ export class RequestService {
       throw new Error("You are not a beneficiary");
     }
 
-    const donation = await this.donationRepository.findOne({
-      where: { id: donationId },
-      relations: ["donor", "donor.user"],
-    });
+    const donation = await this.donationRepository
+      .createQueryBuilder("donation")
+      .leftJoinAndSelect("donation.donor", "donor")
+      .leftJoinAndSelect("donor.user", "donorUser")
+      .where("donation.id = :donationId", { donationId })
+      .getOne();
 
     if (!donation) {
       throw new Error("Donation not found");
@@ -62,12 +64,18 @@ export class RequestService {
 
     // Notify the donor that a new request was created for their donation
     try {
-      if (donation.donor && donation.donor.user && donation.donor.user.id) {
+      const donorUserId = donation.donor?.user?.id;
+      if (!donorUserId) {
+        console.error(
+          "Cannot notify donor: missing donor user relation for donation",
+          { donationId: donation.id },
+        );
+      } else {
         const title = "📩 New request received";
         const message = `${user.name || "A beneficiary"} requested ${quantity} of "${donation.foodType}" from your donation.`;
 
         await this.notificationService.createAndSend(
-          donation.donor.user.id,
+          donorUserId,
           NOTIF_TYPES.REQUEST_RECEIVED,
           title,
           message,
@@ -80,8 +88,16 @@ export class RequestService {
         );
       }
     } catch (err) {
-      // swallow notification errors to not break request creation
-      console.error("Failed to notify donor of new request", err);
+      console.error(
+        "Failed to notify donor of new request",
+        {
+          donationId: donation.id,
+          donorId: donation.donor?.id,
+          donorUserId: donation.donor?.user?.id,
+          requestId: savedRequest.id,
+        },
+        err,
+      );
     }
 
     return savedRequest;
