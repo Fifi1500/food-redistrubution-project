@@ -12,9 +12,6 @@ export class DistributionService {
   private donationRepository = AppDataSource.getRepository(Donation);
   private requestRepository = AppDataSource.getRepository(Request);
 
-  /**
-   * Get all distributions (redistributions)
-   */
   async getAllDistributions(page: number = 1, limit: number = 20) {
     const { skip } = getPagination(page, limit);
 
@@ -49,9 +46,6 @@ export class DistributionService {
     return paginatedResponse(formattedDistributions, total, page, limit);
   }
 
-  /**
-   * Get distribution by ID
-   */
   async getDistributionById(id: string) {
     const distribution = await this.requestRepository.findOne({
       where: { id },
@@ -92,9 +86,6 @@ export class DistributionService {
     };
   }
 
-  /**
-   * Update distribution status
-   */
   async updateDistributionStatus(
     id: string,
     status: RequestStatus,
@@ -123,9 +114,6 @@ export class DistributionService {
     return this.getDistributionById(id);
   }
 
-  /**
-   * Cancel distribution
-   */
   async cancelDistribution(id: string, user: User, reason?: string) {
     const request = await this.requestRepository.findOne({
       where: { id },
@@ -171,9 +159,6 @@ export class DistributionService {
     return { message: "Distribution annulée", id };
   }
 
-  /**
-   * Get distribution statistics
-   */
   async getDistributionStats() {
     const totalDistributions = await this.requestRepository.count({
       where: { status: RequestStatus.COLLECTED },

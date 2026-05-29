@@ -13,8 +13,6 @@ import {
   isValidCoordinates,
   isValidQuantity,
   isValidAddress,
-  geocodeAddress,
-  sendNotification,
   formatDate,
   NOTIF_TYPES,
   getPagination,
@@ -23,10 +21,7 @@ import {
   formatQuantity,
   isValidUnit,
 } from "../utils";
-
-// ============================================
-// INTERFACES
-// ============================================
+import { NotificationService } from "./notification.service";
 
 export interface CreateDonationData {
   foodType: string;
@@ -56,19 +51,12 @@ export interface DonationFilters {
   requiresRefrigeration?: boolean;
 }
 
-// ============================================
-// SERVICE
-// ============================================
-
 export class DonationService {
   private donationRepository = AppDataSource.getRepository(Donation);
   private donorRepository = AppDataSource.getRepository(Donor);
   private requestRepository = AppDataSource.getRepository(Request);
-  private userRepository = AppDataSource.getRepository(User); // ✅ AJOUTÉ
-
-  // ============================================
-  // CREATE DONATION
-  // ============================================
+  private userRepository = AppDataSource.getRepository(User);
+  private notificationService = new NotificationService();
 
   async createDonation(
     user: User,
@@ -80,7 +68,7 @@ export class DonationService {
     });
 
     if (!donor) {
-      throw new Error("Vous devez être un donateur pour créer un don");
+      throw new Error("You must be a donor to create a donation");
     }
 
     if (!data.unit) {
@@ -89,43 +77,32 @@ export class DonationService {
 
     // 2. Validation des données
     if (!data.foodType || data.foodType.trim() === "") {
-      throw new Error("Le type d'aliment est requis");
+      throw new Error("Food type is required");
     }
 
     if (!isValidQuantity(data.totalQuantity)) {
-      throw new Error("La quantité doit être supérieure à 0");
+      throw new Error("Quantity must be greater than 0");
     }
 
     if (!data.expirationDate || new Date(data.expirationDate) <= new Date()) {
-      throw new Error("La date d'expiration doit être dans le futur");
+      throw new Error("Expiration date must be in the future");
     }
 
     if (!isValidAddress(data.pickupAddress)) {
-      throw new Error("L'adresse de retrait est requise");
+      throw new Error("Pickup address is required");
     }
 
-    let pickupLocation = data.pickupLocation;
+    let pickupLocation = data.pickupLocation || null;
 
-    if (!pickupLocation || !pickupLocation.coordinates) {
-      const geocoded = await geocodeAddress(data.pickupAddress);
-      if (!geocoded) {
-        throw new Error(
-          "Impossible de géocoder l'adresse de retrait. Veuillez vérifier l'adresse ou renseigner les coordonnées GPS.",
-        );
+    if (pickupLocation && pickupLocation.coordinates) {
+      const [lng, lat] = pickupLocation.coordinates;
+      if (!isValidCoordinates(lat, lng)) {
+        throw new Error("Invalid GPS coordinates");
       }
-      pickupLocation = {
-        type: "Point",
-        coordinates: [geocoded.lng, geocoded.lat],
-      };
-    }
-
-    const [lng, lat] = pickupLocation.coordinates;
-    if (!isValidCoordinates(lat, lng)) {
-      throw new Error("Coordonnées GPS invalides");
     }
 
     if (!isValidUnit(data.unit)) {
-      throw new Error("Unité invalide");
+      throw new Error("Invalid unit");
     }
 
     // 3. Créer le don
@@ -150,22 +127,49 @@ export class DonationService {
     const donation = this.donationRepository.create(donationData) as Donation;
     const savedDonation = await this.donationRepository.save(donation);
 
-    // 4. Notifier les bénéficiaires à proximité
-    const title = "🍽️ Nouveau don disponible près de chez vous !";
-    const message = `${savedDonation.foodType} (${formatQuantity(savedDonation.totalQuantity, savedDonation.unit)}) à ${savedDonation.pickupAddress}`;
+    // 4. Notifier les administrateurs si le don est urgent ou bientôt expiré
+    const now = new Date();
+    const expirationTime = new Date(savedDonation.expirationDate).getTime();
+    const timeToExpiry = expirationTime - now.getTime();
+    const soonThresholdMs = 48 * 60 * 60 * 1000; // 48 heures
+    const isSoonExpired = timeToExpiry > 0 && timeToExpiry <= soonThresholdMs;
+    const isUrgent = savedDonation.requiresRefrigeration || isSoonExpired;
 
-    await this.notifyNearbyBeneficiaries(savedDonation, title, message);
+    if (isUrgent) {
+      const adminTitle = isSoonExpired
+        ? "🚨 Expiring soon"
+        : "🚨 Urgent donation";
+      const adminMessage = `${savedDonation.foodType} (${formatQuantity(
+        savedDonation.totalQuantity,
+        savedDonation.unit,
+      )}) is available at ${savedDonation.pickupAddress} and expires on ${formatDate(
+        savedDonation.expirationDate,
+      )}.`;
+
+      await this.notificationService.notifyAdmins(adminTitle, adminMessage, {
+        donationId: savedDonation.id,
+        link: `/donations/${savedDonation.id}`,
+        data: {
+          expiresInHours: Math.round(timeToExpiry / (60 * 60 * 1000)),
+          requiresRefrigeration: savedDonation.requiresRefrigeration,
+        },
+      });
+    }
+
+    // 5. Notifier les bénéficiaires à proximité si nous avons des coordonnées
+    const title = "🍽️ New donation available near you!";
+    const message = `${savedDonation.foodType} (${formatQuantity(savedDonation.totalQuantity, savedDonation.unit)}) at ${savedDonation.pickupAddress}`;
+
+    if (
+      savedDonation.pickupLocation &&
+      savedDonation.pickupLocation.coordinates
+    ) {
+      await this.notifyNearbyBeneficiaries(savedDonation, title, message);
+    }
 
     return savedDonation;
   }
 
-  // ============================================
-  // NOTIFY NEARBY BENEFICIARIES
-  // ============================================
-
-  /**
-   * Notifier les bénéficiaires à proximité d'un don
-   */
   private async notifyNearbyBeneficiaries(
     donation: Donation,
     title: string,
@@ -193,12 +197,12 @@ export class DonationService {
       .getMany();
 
     console.log(
-      `📍 ${nearbyBeneficiaries.length} bénéficiaires trouvés dans un rayon de ${radiusKm} km`,
+      `📍 Found ${nearbyBeneficiaries.length} beneficiaries within ${radiusKm} km`,
     );
 
     // Envoyer la notification à chaque bénéficiaire
     for (const beneficiary of nearbyBeneficiaries) {
-      await sendNotification(
+      await this.notificationService.createAndSend(
         beneficiary.id,
         NOTIF_TYPES.NEW_DONATION,
         title,
@@ -223,15 +227,15 @@ export class DonationService {
 
   async getUnits(): Promise<{ value: string; label: string }[]> {
     return [
-      { value: "kg", label: "Kilogrammes (kg)" },
-      { value: "g", label: "Grammes (g)" },
-      { value: "L", label: "Litres (L)" },
-      { value: "mL", label: "Millilitres (mL)" },
-      { value: "pièces", label: "Pièces" },
-      { value: "unités", label: "Unités" },
-      { value: "cartons", label: "Cartons" },
-      { value: "sacs", label: "Sacs" },
-      { value: "paquets", label: "Paquets" },
+      { value: "kg", label: "Kilograms (kg)" },
+      { value: "g", label: "Grams (g)" },
+      { value: "L", label: "Liters (L)" },
+      { value: "mL", label: "Milliliters (mL)" },
+      { value: "pieces", label: "Pieces" },
+      { value: "units", label: "Units" },
+      { value: "boxes", label: "Boxes" },
+      { value: "bags", label: "Bags" },
+      { value: "packs", label: "Packs" },
     ];
   }
 
@@ -245,6 +249,8 @@ export class DonationService {
     filters?: DonationFilters,
   ) {
     const { skip } = getPagination(page, limit);
+
+    await this.markExpiredDonations();
 
     const queryBuilder = this.donationRepository
       .createQueryBuilder("donation")
@@ -307,6 +313,8 @@ export class DonationService {
     if (!isValidCoordinates(lat, lng)) {
       throw new Error("Coordonnées GPS invalides");
     }
+
+    await this.markExpiredDonations();
 
     const { skip, limit: limitNum } = getPagination(page, limit);
 
@@ -436,7 +444,7 @@ export class DonationService {
     });
 
     if (!donor) {
-      throw new Error("Vous n'êtes pas un donateur");
+      throw new Error("You are not a donor");
     }
 
     const { skip } = getPagination(page, limit);
@@ -496,12 +504,12 @@ export class DonationService {
     const donation = await this.getDonationById(id);
 
     if (!donation) {
-      throw new Error("Don non trouvé");
+      throw new Error("Donation not found");
     }
 
     // Vérifier que l'utilisateur est le propriétaire
-    if (donation.donor?.user?.id !== user.id && user.role !== "admin") {
-      throw new Error("Vous n'êtes pas autorisé à modifier ce don");
+    if (donation.donor?.user.id !== user.id && user.role !== "admin") {
+      throw new Error("You are not authorized to modify this donation");
     }
 
     const oldStatus = donation.status;
@@ -511,17 +519,17 @@ export class DonationService {
     // 1. NOTIFIER LE DONATEUR
     if (donation.donor?.user) {
       const statusMessages: Record<string, string> = {
-        available: "disponible",
-        completed: "terminé",
-        expired: "expiré",
-        cancelled: "annulé",
+        available: "available",
+        completed: "completed",
+        expired: "expired",
+        cancelled: "cancelled",
       };
 
-      await sendNotification(
+      await this.notificationService.createAndSend(
         donation.donor.user.id,
         NOTIF_TYPES.DONATION_STATUS_CHANGED,
         "📢 Statut de votre don modifié",
-        `Le statut de votre don "${donation.foodType}" est passé à ${statusMessages[status] || status}`,
+        `Your donation "${donation.foodType}" status changed to ${statusMessages[status] || status}`,
         {
           donationId: id,
           link: `/donations/${id}`,
@@ -545,18 +553,18 @@ export class DonationService {
       ];
 
       const statusMessages: Record<string, string> = {
-        available: "de nouveau disponible",
-        completed: "terminé",
-        expired: "expiré",
-        cancelled: "annulé",
+        available: "available again",
+        completed: "completed",
+        expired: "expired",
+        cancelled: "cancelled",
       };
 
       for (const beneficiaryId of beneficiaryIds) {
-        await sendNotification(
+        await this.notificationService.createAndSend(
           beneficiaryId,
           NOTIF_TYPES.DONATION_STATUS_CHANGED,
           "📢 Statut du don modifié",
-          `Le don "${donation.foodType}" est maintenant ${statusMessages[status] || status}`,
+          `The donation "${donation.foodType}" is now ${statusMessages[status] || status}`,
           {
             donationId: id,
             link: `/donations/${id}`,
@@ -582,11 +590,11 @@ export class DonationService {
     });
 
     if (!donation) {
-      throw new Error("Don non trouvé");
+      throw new Error("Donation not found");
     }
 
     if (quantityToReduce > donation.availableQuantity) {
-      throw new Error("Quantité insuffisante");
+      throw new Error("Insufficient quantity");
     }
 
     donation.availableQuantity -= quantityToReduce;
@@ -611,12 +619,12 @@ export class DonationService {
     });
 
     if (!donation) {
-      throw new Error("Don non trouvé");
+      throw new Error("Donation not found");
     }
 
     // Vérifier que l'utilisateur est le propriétaire ou admin
     if (donation.donor.user.id !== user.id && user.role !== "admin") {
-      throw new Error("Vous n'êtes pas autorisé à supprimer ce don");
+      throw new Error("You are not authorized to delete this donation");
     }
 
     // Vérifier qu'il n'y a pas de demandes approuvées
@@ -628,9 +636,7 @@ export class DonationService {
     });
 
     if (hasApprovedRequests > 0) {
-      throw new Error(
-        "Impossible de supprimer un don avec des demandes approuvées",
-      );
+      throw new Error("Cannot delete a donation with approved requests");
     }
 
     await this.donationRepository.remove(donation);
@@ -662,7 +668,7 @@ export class DonationService {
     });
 
     if (!donor) {
-      throw new Error("Vous n'êtes pas un donateur");
+      throw new Error("You are not a donor");
     }
 
     const stats = await this.donationRepository
@@ -725,5 +731,19 @@ export class DonationService {
     }));
 
     return paginatedResponse(formattedDonations, total, page, limit);
+  }
+
+  // admin (tous les dons)
+  async getAllDonationsForAdmin(page: number = 1, limit: number = 20) {
+    const { skip } = getPagination(page, limit);
+
+    const [donations, total] = await this.donationRepository.findAndCount({
+      relations: ["donor", "donor.user"],
+      order: { createdAt: "DESC" },
+      skip,
+      take: limit,
+    });
+
+    return paginatedResponse(donations, total, page, limit);
   }
 }

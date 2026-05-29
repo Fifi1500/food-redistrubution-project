@@ -8,7 +8,7 @@ export class RequestController {
     try {
       const user = req.user;
       if (!user) {
-        return res.status(401).json({ message: "Non authentifié" });
+        return res.status(401).json({ message: "Not authenticated" });
       }
       const { donationId, quantity, notes } = req.body;
       const request = await requestService.createRequest(
@@ -30,7 +30,7 @@ export class RequestController {
       const user = req.user;
 
       if (!user) {
-        return res.status(401).json({ message: "Non authentifié" });
+        return res.status(401).json({ message: "Not authenticated" });
       }
 
       const request = await requestService.updateRequestStatus(
@@ -40,7 +40,7 @@ export class RequestController {
       );
 
       res.json({
-        message: `Statut de la demande changé à ${status}`,
+        message: `Request status changed to ${status}`,
         request,
       });
     } catch (error: any) {
@@ -52,7 +52,7 @@ export class RequestController {
     try {
       const user = req.user;
       if (!user) {
-        return res.status(401).json({ message: "Non authentifié" });
+        return res.status(401).json({ message: "Not authenticated" });
       }
       const requests = await requestService.getMyRequests(user);
       res.json({ requests });
@@ -65,12 +65,25 @@ export class RequestController {
     try {
       const user = req.user;
       if (!user) {
-        return res.status(401).json({ message: "Non authentifié" });
+        return res.status(401).json({ message: "Not authenticated" });
       }
       const requests = await requestService.getReceivedRequests(user);
       res.json({ requests });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
+    }
+  }
+
+  static async cancel(req: Request, res: Response) {
+    try {
+      const user = req.user;
+      if (!user) return res.status(401).json({ message: "Not authenticated" });
+
+      const { id } = req.params;
+      const result = await requestService.cancelRequest(id, user);
+      res.json(result);
+    } catch (error: any) {
+      res.status(400).json({ message: error.message });
     }
   }
 }

@@ -44,7 +44,7 @@ export class User {
     length: 2,
     nullable: true,
   })
-  wilaya: string;
+  wilaya: string | null;
 
   @Column({ nullable: true })
   address: string;

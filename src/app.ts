@@ -7,6 +7,7 @@ import morgan from "morgan";
 import dotenv from "dotenv";
 import { AppDataSource } from "./config/db";
 import routes from "./routes/user.routes";
+import { DonationService } from "./services";
 import { Client } from "pg";
 
 dotenv.config();
@@ -113,7 +114,25 @@ async function startServer() {
       console.log("⚠️ PostGIS non disponible (géolocalisation limitée)");
     }
 
-    // 4. Démarrer le serveur
+    // 4. Démarrer le service de gestion d'expiration des dons
+    const donationService = new DonationService();
+    await donationService.markExpiredDonations();
+
+    setInterval(async () => {
+      try {
+        const count = await donationService.markExpiredDonations();
+        if (count > 0) {
+          console.log(`✅ ${count} don(s) marqué(s) comme expiré(s)`);
+        }
+      } catch (error) {
+        console.error(
+          "❌ Erreur lors de la mise à jour des dons expirés",
+          error,
+        );
+      }
+    }, 60 * 1000);
+
+    // 5. Démarrer le serveur
     httpServer.listen(PORT, () => {
       console.log(`🚀 Serveur sur http://localhost:${PORT}`);
     });

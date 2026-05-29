@@ -15,11 +15,11 @@ import {
   isValidEmail,
   isValidPassword,
   isValidPhone,
-  geocodeAddress,
   formatError,
   sendNotification,
   NOTIF_TYPES,
 } from "../utils";
+import { NotificationService } from "./notification.service";
 
 // ============================================
 // INTERFACES
@@ -31,15 +31,16 @@ export interface RegisterData {
   name: string;
   phone: string;
   role: UserRole;
+  wilaya?: string;
   address: string;
   location?: {
     type: "Point";
     coordinates: [number, number];
   };
-  // Pour les donateurs
+
   organizationName?: string;
   businessType?: BusinessType;
-  // Pour les bénéficiaires
+
   organizationType?: OrganizationType;
 }
 
@@ -61,73 +62,60 @@ export class AuthService {
   private userRepository = AppDataSource.getRepository(User);
   private donorRepository = AppDataSource.getRepository(Donor);
   private beneficiaryRepository = AppDataSource.getRepository(Beneficiary);
+  private notificationService = new NotificationService();
 
-  /**
-   * Inscription d'un nouvel utilisateur
-   */
   async register(data: RegisterData): Promise<AuthResponse> {
-    // 1. Validation des données
+    // Validation des données
     if (!data.email || !data.password || !data.name) {
-      throw new Error("Email, mot de passe et nom sont requis");
+      throw new Error("Email, password and name are required");
     }
 
     if (!isValidEmail(data.email)) {
-      throw new Error("Email invalide");
+      throw new Error("Invalid email");
     }
 
     if (!isValidPassword(data.password)) {
-      throw new Error("Le mot de passe doit contenir au moins 6 caractères");
+      throw new Error("Password must be at least 6 characters");
     }
 
     if (data.phone && !isValidPhone(data.phone)) {
-      throw new Error("Numéro de téléphone invalide");
+      throw new Error("Invalid phone number");
     }
 
-    // 2. Vérifier si l'utilisateur existe déjà
+    // Vérifier si l'utilisateur existe déjà
     const existingUser = await this.userRepository.findOne({
       where: { email: data.email },
     });
 
     if (existingUser) {
-      throw new Error("Cet email est déjà utilisé");
+      throw new Error("This email is already in use");
     }
 
-    // 3. Hasher le mot de passe
+    // Hasher le mot de passe
     const hashedPassword = await hashPassword(data.password);
 
-    // 4. Résoudre la localisation si nécessaire
+    // Résoudre la localisation
     let location: { type: "Point"; coordinates: [number, number] } | null =
       data.location || null;
 
-    if (!location && data.address) {
-      const geocoded = await geocodeAddress(data.address);
-      if (geocoded) {
-        location = {
-          type: "Point",
-          coordinates: [geocoded.lng, geocoded.lat],
-        };
-      }
-    }
-
-    // 5. Créer l'utilisateur de base
+    //Créer l'utilisateur
     const user = new User();
     user.email = data.email;
     user.password = hashedPassword;
     user.name = data.name;
     user.phone = data.phone;
     user.role = data.role;
+    user.wilaya = data.wilaya ?? null;
     user.address = data.address;
     user.location = location;
     user.isActive = true;
 
     await this.userRepository.save(user);
 
-    // 5. Créer le profil spécifique selon le rôle
+    // Créer le profil selon le rôle
     if (data.role === UserRole.DONOR) {
       if (!data.organizationName) {
-        throw new Error(
-          "Le nom de l'organisation est requis pour les donateurs",
-        );
+        throw new Error("Organization name is required for donors");
       }
 
       const donor = this.donorRepository.create({
@@ -146,25 +134,33 @@ export class AuthService {
       await this.beneficiaryRepository.save(beneficiary);
     }
 
-    // 6. Générer le token JWT
+    // Notify administrators
+    await this.notificationService.notifyAdmins(
+      "New user registration",
+      `New user ${user.name} (${user.email}) registered as ${data.role}.`,
+      {
+        link: "/admin/users",
+        data: { role: data.role, email: user.email },
+      },
+    );
+
+    // Générer le token
     const token = generateToken(user);
 
-    // 7. Ne pas renvoyer le mot de passe
     const { password, ...userWithoutPassword } = user;
 
     return { user: userWithoutPassword, token };
   }
 
-  /**
-   * Connexion d'un utilisateur
-   */
+  // Connexion d'un utilisateur
+
   async login(email: string, password: string): Promise<AuthResponse> {
-    // 1. Validation
+    // Validation
     if (!email || !password) {
       throw new Error("Email et mot de passe requis");
     }
 
-    // 2. Trouver l'utilisateur
+    // Trouver l'utilisateur
     const user = await this.userRepository.findOne({
       where: { email },
       relations: ["donorProfile", "beneficiaryProfile"],
@@ -174,31 +170,27 @@ export class AuthService {
       throw new Error("Email ou mot de passe incorrect");
     }
 
-    // 3. Vérifier si le compte est actif
+    //  Vérifier si le compte est actif
     if (user.isActive === false) {
       throw new Error(
         "Votre compte a été désactivé. Contactez l'administrateur.",
       );
     }
 
-    // 4. Vérifier le mot de passe
+    //  Vérifier le mot de passe
     const isValidPassword = await comparePassword(password, user.password);
     if (!isValidPassword) {
       throw new Error("Email ou mot de passe incorrect");
     }
 
-    // 5. Générer le token
+    // Générer le token
     const token = generateToken(user);
 
-    // 6. Ne pas renvoyer le mot de passe
     const { password: _, ...userWithoutPassword } = user;
 
     return { user: userWithoutPassword, token };
   }
 
-  /**
-   * Récupérer le profil d'un utilisateur
-   */
   async getProfile(userId: string): Promise<Partial<User> | null> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
@@ -213,9 +205,6 @@ export class AuthService {
     return userWithoutPassword;
   }
 
-  /**
-   * Mettre à jour le profil d'un utilisateur
-   */
   async updateProfile(
     userId: string,
     data: Partial<User>,
@@ -241,9 +230,6 @@ export class AuthService {
     return userWithoutPassword;
   }
 
-  /**
-   * Changer le mot de passe
-   */
   async changePassword(
     userId: string,
     oldPassword: string,
@@ -275,9 +261,6 @@ export class AuthService {
     await this.userRepository.save(user);
   }
 
-  /**
-   * Réinitialiser le mot de passe (oublie)
-   */
   async resetPassword(email: string, newPassword: string): Promise<void> {
     const user = await this.userRepository.findOne({
       where: { email },
@@ -295,9 +278,6 @@ export class AuthService {
     await this.userRepository.save(user);
   }
 
-  /**
-   * Vérifier si un email existe déjà
-   */
   async checkEmailExists(email: string): Promise<boolean> {
     const user = await this.userRepository.findOne({
       where: { email },
@@ -305,9 +285,6 @@ export class AuthService {
     return !!user;
   }
 
-  /**
-   * Récupérer tous les utilisateurs (admin)
-   */
   async getAllUsers(
     page: number = 1,
     limit: number = 20,
@@ -327,9 +304,6 @@ export class AuthService {
     return { users: usersWithoutPassword, total };
   }
 
-  /**
-   * Désactiver un utilisateur (admin)
-   */
   async deactivateUser(userId: string): Promise<void> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
@@ -343,9 +317,6 @@ export class AuthService {
     await this.userRepository.save(user);
   }
 
-  /**
-   * Activer un utilisateur (admin)
-   */
   async activateUser(userId: string): Promise<void> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
@@ -359,9 +330,6 @@ export class AuthService {
     await this.userRepository.save(user);
   }
 
-  /**
-   * Supprimer un utilisateur (admin)
-   */
   async deleteUser(userId: string): Promise<void> {
     const user = await this.userRepository.findOne({
       where: { id: userId },
@@ -374,9 +342,6 @@ export class AuthService {
     await this.userRepository.remove(user);
   }
 
-  /**
-   * Vérifier un donateur (admin)
-   */
   async verifyDonor(userId: string): Promise<void> {
     const donor = await this.donorRepository.findOne({
       where: { user: { id: userId } },
@@ -390,9 +355,6 @@ export class AuthService {
     await this.donorRepository.save(donor);
   }
 
-  /**
-   * Vérifier un bénéficiaire (admin)
-   */
   async verifyBeneficiary(userId: string): Promise<void> {
     const beneficiary = await this.beneficiaryRepository.findOne({
       where: { user: { id: userId } },

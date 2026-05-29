@@ -7,12 +7,14 @@ import {
   Request,
   RequestStatus,
 } from "../entities/index";
-import { sendNotification, NOTIF_TYPES } from "../utils";
+import { NOTIF_TYPES } from "../utils";
+import { NotificationService } from "./notification.service";
 
 export class RequestService {
   private requestRepository = AppDataSource.getRepository(Request);
   private donationRepository = AppDataSource.getRepository(Donation);
   private beneficiaryRepository = AppDataSource.getRepository(Beneficiary);
+  private notificationService = new NotificationService();
 
   // Créer une demande
   async createRequest(
@@ -26,23 +28,24 @@ export class RequestService {
     });
 
     if (!beneficiary) {
-      throw new Error("Vous n'êtes pas un bénéficiaire");
+      throw new Error("You are not a beneficiary");
     }
 
     const donation = await this.donationRepository.findOne({
       where: { id: donationId },
+      relations: ["donor", "donor.user"],
     });
 
     if (!donation) {
-      throw new Error("Don non trouvé");
+      throw new Error("Donation not found");
     }
 
     if (donation.status !== DonationStatus.AVAILABLE) {
-      throw new Error("Ce don n'est plus disponible");
+      throw new Error("This donation is no longer available");
     }
 
     if (quantity > donation.availableQuantity) {
-      throw new Error("Quantité demandée supérieure à la quantité disponible");
+      throw new Error("Requested quantity exceeds available quantity");
     }
 
     const request = this.requestRepository.create({
@@ -55,7 +58,33 @@ export class RequestService {
       notes,
     });
 
-    return await this.requestRepository.save(request);
+    const savedRequest = await this.requestRepository.save(request);
+
+    // Notify the donor that a new request was created for their donation
+    try {
+      if (donation.donor && donation.donor.user && donation.donor.user.id) {
+        const title = "📩 New request received";
+        const message = `${user.name || "A beneficiary"} requested ${quantity} of "${donation.foodType}" from your donation.`;
+
+        await this.notificationService.createAndSend(
+          donation.donor.user.id,
+          NOTIF_TYPES.REQUEST_RECEIVED,
+          title,
+          message,
+          {
+            requestId: savedRequest.id,
+            donationId: donation.id,
+            link: `/donations/${donation.id}`,
+            data: { requestedQuantity: quantity },
+          },
+        );
+      }
+    } catch (err) {
+      // swallow notification errors to not break request creation
+      console.error("Failed to notify donor of new request", err);
+    }
+
+    return savedRequest;
   }
 
   async updateRequestStatus(
@@ -75,26 +104,55 @@ export class RequestService {
     });
 
     if (!request) {
-      throw new Error("Demande non trouvée");
+      throw new Error("Request not found");
     }
 
     // Vérifier que l'utilisateur est le donateur ou admin
     if (request.donation.donor.user.id !== user.id && user.role !== "admin") {
-      throw new Error("Vous n'êtes pas autorisé");
+      throw new Error("You are not authorized");
     }
 
     // Mettre à jour le statut
+    // If approving, reduce donation available quantity now
+    if (status === RequestStatus.APPROVED) {
+      if (!request.donation) {
+        throw new Error("Donation not found");
+      }
+
+      if (request.requestedQuantity > request.donation.availableQuantity) {
+        throw new Error("Insufficient quantity at approval time");
+      }
+
+      request.donation.availableQuantity -= request.requestedQuantity;
+      if (request.donation.availableQuantity <= 0) {
+        request.donation.status = DonationStatus.COMPLETED;
+      }
+
+      await this.donationRepository.save(request.donation);
+    }
+
     request.status = status;
     request.processedAt = new Date();
 
     await this.requestRepository.save(request);
 
-    // Notifier le bénéficiaire
-    await sendNotification(
+    const notificationType =
+      status === RequestStatus.APPROVED
+        ? NOTIF_TYPES.REQUEST_APPROVED
+        : status === RequestStatus.REJECTED
+          ? NOTIF_TYPES.REQUEST_REJECTED
+          : NOTIF_TYPES.REQUEST_STATUS_CHANGED;
+
+    await this.notificationService.createAndSend(
       request.beneficiary.user.id,
-      NOTIF_TYPES.REQUEST_APPROVED,
-      `Le statut de votre demande pour "${request.donation.foodType}" est passé à ${status}`,
-      `/requests/${request.id}`,
+      notificationType,
+      `The status of your request for "${request.donation.foodType}" changed to ${status}`,
+      `The status of your request for "${request.donation.foodType}" changed to ${status}`,
+      {
+        requestId: request.id,
+        link: `/requests/${request.id}`,
+        data: { status, donationId: request.donation?.id },
+      },
     );
 
     return request;
@@ -132,5 +190,61 @@ export class RequestService {
     return allRequests.sort(
       (a, b) => b.requestDate.getTime() - a.requestDate.getTime(),
     );
+  }
+
+  // Beneficiary cancels  own pending request
+  async cancelRequest(
+    requestId: string,
+    user: User,
+  ): Promise<{ message: string }> {
+    const request = await this.requestRepository.findOne({
+      where: { id: requestId },
+      relations: [
+        "donation",
+        "donation.donor",
+        "donation.donor.user",
+        "beneficiary",
+        "beneficiary.user",
+      ],
+    });
+
+    if (!request) {
+      throw new Error("Request not found");
+    }
+
+    if (request.beneficiary?.user?.id !== user.id && user.role !== "admin") {
+      throw new Error("You are not authorized to cancel this request");
+    }
+
+    // Only pending
+    if (request.status !== RequestStatus.PENDING) {
+      throw new Error("Only pending requests can be cancelled");
+    }
+
+    // Remove the request
+    await this.requestRepository.remove(request);
+
+    // Notify donor that the request was cancelled
+    try {
+      if (request.donation?.donor?.user?.id) {
+        const title = "❌ Request cancelled";
+        const message = `${request.beneficiary?.user?.name || "A beneficiary"} cancelled their request for "${request.donation.foodType}".`;
+        await this.notificationService.createAndSend(
+          request.donation.donor.user.id,
+          NOTIF_TYPES.REQUEST_STATUS_CHANGED,
+          title,
+          message,
+          {
+            requestId: request.id,
+            donationId: request.donation.id,
+            link: `/donations/${request.donation.id}`,
+          },
+        );
+      }
+    } catch (err) {
+      console.error("Failed to notify donor of cancelled request", err);
+    }
+
+    return { message: "Request cancelled" };
   }
 }

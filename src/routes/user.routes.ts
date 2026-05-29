@@ -125,6 +125,13 @@ router.patch(
   idParamValidation,
   UserController.verifyBeneficiary,
 );
+
+router.get(
+  "/admin/donations",
+  role(["admin"]),
+  paginationValidation,
+  DonationController.getAllForAdmin,
+);
 // ============ DONATIONS ============
 router.post(
   "/donations",
@@ -171,6 +178,14 @@ router.patch(
   role(["donor"]),
   idParamValidation,
   RequestController.updateStatus,
+);
+
+// Beneficiary cancels their own pending request
+router.delete(
+  "/requests/:id",
+  role(["beneficiary"]),
+  idParamValidation,
+  RequestController.cancel,
 );
 
 // Notifications

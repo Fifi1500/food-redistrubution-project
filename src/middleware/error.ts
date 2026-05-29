@@ -3,12 +3,12 @@ import { formatError } from "../utils";
 
 // Middleware pour les erreurs 404 (route non trouvée)
 export const notFound = (req: Request, res: Response, next: NextFunction) => {
-  const error = new Error(`Route non trouvée - ${req.originalUrl}`);
+  const error = new Error(`Route not found - ${req.originalUrl}`);
   res.status(404);
   next(error);
 };
 
-// Middleware principal de gestion des erreurs
+// Middleware  erreurs
 export const errorHandler = (
   err: any,
   req: Request,
@@ -16,7 +16,7 @@ export const errorHandler = (
   next: NextFunction,
 ) => {
   let statusCode = res.statusCode === 200 ? 500 : res.statusCode;
-  let message = err.message || "Erreur interne du serveur";
+  let message = err.message || "Internal server error";
 
   // Erreur de validation
   if (err.name === "ValidationError") {
@@ -27,19 +27,19 @@ export const errorHandler = (
   // Erreur JWT
   if (err.name === "JsonWebTokenError") {
     statusCode = 401;
-    message = "Token invalide";
+    message = "Invalid token";
   }
 
   if (err.name === "TokenExpiredError") {
     statusCode = 401;
-    message = "Token expiré";
+    message = "Token expired";
   }
 
   // Erreur Multer
   if (err.name === "MulterError") {
     statusCode = 400;
     if (err.code === "LIMIT_FILE_SIZE") {
-      message = "Fichier trop volumineux (max 5MB)";
+      message = "File too large (max 5MB)";
     } else {
       message = err.message;
     }

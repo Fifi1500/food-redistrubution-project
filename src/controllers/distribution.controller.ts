@@ -4,9 +4,6 @@ import { DistributionService } from "../services";
 const distributionService = new DistributionService();
 
 export class DistributionController {
-  /**
-   * Get all distributions
-   */
   static async getAll(req: Request, res: Response) {
     try {
       const page = parseInt(req.query.page as string) || 1;
@@ -21,15 +18,12 @@ export class DistributionController {
     }
   }
 
-  /**
-   * Get distribution by ID
-   */
   static async getOne(req: Request, res: Response) {
     try {
       const { id } = req.params;
       const distribution = await distributionService.getDistributionById(id);
       if (!distribution) {
-        return res.status(404).json({ message: "Distribution non trouvée" });
+        return res.status(404).json({ message: "Distribution not found" });
       }
       res.json(distribution);
     } catch (error: any) {
@@ -37,16 +31,13 @@ export class DistributionController {
     }
   }
 
-  /**
-   * Update distribution status
-   */
   static async updateStatus(req: Request, res: Response) {
     try {
       const { id } = req.params;
       const { status } = req.body;
       const user = req.user;
 
-      if (!user) return res.status(401).json({ message: "Non authentifié" });
+      if (!user) return res.status(401).json({ message: "Not authenticated" });
 
       const distribution = await distributionService.updateDistributionStatus(
         id,
@@ -59,31 +50,25 @@ export class DistributionController {
     }
   }
 
-  /**
-   * Cancel distribution
-   */
   static async cancel(req: Request, res: Response) {
     try {
       const { id } = req.params;
       const { reason } = req.body;
       const user = req.user;
 
-      if (!user) return res.status(401).json({ message: "Non authentifié" });
+      if (!user) return res.status(401).json({ message: "Not authenticated" });
 
       const result = await distributionService.cancelDistribution(
         id,
         user,
         reason,
       );
-      res.json(result);
+      res.json({ message: "Distribution cancelled", result });
     } catch (error: any) {
       res.status(400).json({ message: error.message });
     }
   }
 
-  /**
-   * Get distribution statistics
-   */
   static async getStats(req: Request, res: Response) {
     try {
       const stats = await distributionService.getDistributionStats();

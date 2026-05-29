@@ -4,9 +4,6 @@ import { StatsService } from "../services";
 const statsService = new StatsService();
 
 export class StatsController {
-  /**
-   * Dashboard statistics
-   */
   static async getDashboardStats(req: Request, res: Response) {
     try {
       const stats = await statsService.getDashboardStats();
@@ -16,9 +13,6 @@ export class StatsController {
     }
   }
 
-  /**
-   * Quick stats
-   */
   static async getQuickStats(req: Request, res: Response) {
     try {
       const stats = await statsService.getQuickStats();
@@ -28,9 +22,6 @@ export class StatsController {
     }
   }
 
-  /**
-   * Recent activities
-   */
   static async getRecentActivities(req: Request, res: Response) {
     try {
       const limit = parseInt(req.query.limit as string) || 10;
@@ -41,9 +32,6 @@ export class StatsController {
     }
   }
 
-  /**
-   * Overall impact
-   */
   static async getOverallImpact(req: Request, res: Response) {
     try {
       const impact = await statsService.getOverallImpact();
@@ -53,9 +41,6 @@ export class StatsController {
     }
   }
 
-  /**
-   * Impact by period
-   */
   static async getImpactByPeriod(req: Request, res: Response) {
     try {
       const period = (req.query.period as "day" | "week" | "month") || "month";
@@ -66,9 +51,6 @@ export class StatsController {
     }
   }
 
-  /**
-   * Top donors
-   */
   static async getTopDonors(req: Request, res: Response) {
     try {
       const limit = parseInt(req.query.limit as string) || 10;
@@ -79,9 +61,6 @@ export class StatsController {
     }
   }
 
-  /**
-   * Top beneficiaries
-   */
   static async getTopBeneficiaries(req: Request, res: Response) {
     try {
       const limit = parseInt(req.query.limit as string) || 10;
@@ -92,9 +71,6 @@ export class StatsController {
     }
   }
 
-  /**
-   * Impact by wilaya
-   */
   static async getImpactByWilaya(req: Request, res: Response) {
     try {
       const impact = await statsService.getImpactByWilaya();

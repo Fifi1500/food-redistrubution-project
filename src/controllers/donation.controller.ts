@@ -9,7 +9,7 @@ export class DonationController {
     try {
       const user = req.user;
       if (!user) {
-        return res.status(401).json({ message: "Non authentifié" });
+        return res.status(401).json({ message: "Not authenticated" });
       }
       const donation = await donationService.createDonation(user, req.body);
       res.status(201).json(donation);
@@ -44,7 +44,7 @@ export class DonationController {
       if (!lat || !lng) {
         return res
           .status(400)
-          .json({ message: "Latitude et longitude requises" });
+          .json({ message: "Latitude and longitude required" });
       }
       const donations = await donationService.getNearbyDonations(
         parseFloat(lat as string),
@@ -62,7 +62,7 @@ export class DonationController {
       const { id } = req.params;
       const donation = await donationService.getDonationById(id);
       if (!donation) {
-        return res.status(404).json({ message: "Don non trouvé" });
+        return res.status(404).json({ message: "Donation not found" });
       }
       res.json({ donation });
     } catch (error: any) {
@@ -74,7 +74,7 @@ export class DonationController {
     try {
       const user = req.user;
       if (!user) {
-        return res.status(401).json({ message: "Non authentifié" });
+        return res.status(401).json({ message: "Not authenticated" });
       }
       const donations = await donationService.getDonorDonations(user);
       res.json({ donations });
@@ -90,7 +90,7 @@ export class DonationController {
       const user = req.user;
 
       if (!user) {
-        return res.status(401).json({ message: "Non authentifié" });
+        return res.status(401).json({ message: "Not authenticated" });
       }
       const donation = await donationService.updateDonationStatus(
         id,
@@ -109,12 +109,12 @@ export class DonationController {
       const user = req.user;
 
       if (!user) {
-        return res.status(401).json({ message: "Non authentifié" });
+        return res.status(401).json({ message: "Not authenticated" });
       }
 
       await donationService.deleteDonation(id, user);
 
-      res.json({ message: "Don supprimé avec succès" });
+      res.json({ message: "Donation deleted successfully" });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
@@ -131,6 +131,18 @@ export class DonationController {
         page,
         limit,
       );
+      res.json(result);
+    } catch (error: any) {
+      res.status(500).json({ message: error.message });
+    }
+  }
+
+  //admin
+  static async getAllForAdmin(req: Request, res: Response) {
+    try {
+      const page = parseInt(req.query.page as string) || 1;
+      const limit = parseInt(req.query.limit as string) || 20;
+      const result = await donationService.getAllDonationsForAdmin(page, limit);
       res.json(result);
     } catch (error: any) {
       res.status(500).json({ message: error.message });

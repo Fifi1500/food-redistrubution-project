@@ -29,7 +29,7 @@ export const validate = (req: Request, res: Response, next: NextFunction) => {
     });
 
     return res.status(400).json({
-      message: "Erreur de validation",
+      message: "Validation error",
       errors: formattedErrors,
     });
   }
@@ -38,46 +38,42 @@ export const validate = (req: Request, res: Response, next: NextFunction) => {
 
 export const registerValidation = [
   // BASIC FIELDS
-  body("email").isEmail().withMessage("Email invalide").normalizeEmail(),
+  body("email").isEmail().withMessage("Invalid email").normalizeEmail(),
   body("password")
     .isLength({ min: 6 })
-    .withMessage("Mot de passe trop court (min 6 caractères)")
+    .withMessage("Password too short (min 6 characters)")
     .matches(/^(?=.*[A-Za-z])(?=.*\d)/)
-    .withMessage(
-      "Le mot de passe doit contenir au moins une lettre et un chiffre",
-    ),
+    .withMessage("Password must contain at least one letter and one number"),
 
   body("name")
     .notEmpty()
-    .withMessage("Nom requis")
+    .withMessage("Name required")
     .isLength({ min: 2, max: 100 })
-    .withMessage("Nom doit contenir entre 2 et 100 caractères"),
+    .withMessage("Name must be between 2 and 100 characters"),
 
   body("role")
     .isIn(["donor", "beneficiary", "admin"])
-    .withMessage("Rôle invalide"),
+    .withMessage("Invalid role"),
 
   // OPTIONAL FIELDS
   body("phone")
     .optional()
     .matches(/^[0-9+\s]{8,15}$/)
-    .withMessage(
-      "Numéro de téléphone invalide (ex: 0612345678 ou +33123456789)",
-    ),
+    .withMessage("Invalid phone number (e.g., 0612345678 or +33123456789)"),
 
   // Validation pour wilaya
   body("wilaya")
     .optional()
     .isString()
-    .withMessage("La wilaya doit être un code (ex: 16, 31)")
+    .withMessage("Wilaya must be a code (e.g., 16, 31)")
     .custom((value) => isValidWilaya(value))
-    .withMessage("Code wilaya invalide (01 à 69)"),
+    .withMessage("Invalid wilaya code (01 to 69)"),
 
   // ✅ UNE SEULE VALIDATION location (garde celle-ci)
   body("location")
     .optional()
     .isObject()
-    .withMessage("Localisation doit être un objet")
+    .withMessage("Location must be an object")
     .custom((value) => {
       if (value && value.coordinates) {
         const [lng, lat] = value.coordinates;
@@ -88,14 +84,14 @@ export const registerValidation = [
       return false;
     })
     .withMessage(
-      "Coordonnées GPS invalides (ex: { type: 'Point', coordinates: [lng, lat] })",
+      "Invalid GPS coordinates (e.g., { type: 'Point', coordinates: [lng, lat] })",
     ),
 
   body("address")
     .notEmpty()
     .isString()
     .isLength({ min: 5 })
-    .withMessage("Adresse trop courte (min 5 caractères)"),
+    .withMessage("Address too short (min 5 characters)"),
 
   // ❌ SUPPRIME cette deuxième validation location (vers ligne 80-90)
 
@@ -103,45 +99,43 @@ export const registerValidation = [
   body("organizationName")
     .if(body("role").equals("donor"))
     .notEmpty()
-    .withMessage("Nom de l'organisation requis pour donor")
+    .withMessage("Organization name required for donor")
     .isLength({ min: 2, max: 100 })
-    .withMessage("Nom d'organisation trop long (max 100 caractères)"),
+    .withMessage("Organization name too long (max 100 characters)"),
 
   body("businessType")
     .if(body("role").equals("donor"))
     .isIn(["bakery", "restaurant", "supermarket", "other"])
     .withMessage(
-      "Type de commerce invalide (bakery, restaurant, supermarket, other)",
+      "Invalid business type (bakery, restaurant, supermarket, other)",
     ),
 
   body("phone")
     .if(body("role").equals("donor"))
     .notEmpty()
-    .withMessage("Téléphone requis pour donor")
+    .withMessage("Phone required for donor")
     .matches(/^[0-9+\s]{8,15}$/)
-    .withMessage("Numéro de téléphone invalide"),
+    .withMessage("Invalid phone number"),
 
   // BENEFICIARY VALIDATION
   body("organizationType")
     .if(body("role").equals("beneficiary"))
     .isIn(["association", "individual", "other"])
-    .withMessage(
-      "Type d'organisation invalide (association, individual, other)",
-    ),
+    .withMessage("Invalid organization type (association, individual, other)"),
 
   body("phone")
     .if(body("role").equals("beneficiary"))
     .notEmpty()
-    .withMessage("Téléphone requis pour beneficiary")
+    .withMessage("Phone required for beneficiary")
     .matches(/^[0-9+\s]{8,15}$/)
-    .withMessage("Numéro de téléphone invalide"),
+    .withMessage("Invalid phone number"),
 
   body("address")
     .if(body("role").equals("beneficiary"))
     .notEmpty()
-    .withMessage("Adresse requise pour beneficiary")
+    .withMessage("Address required for beneficiary")
     .isLength({ min: 5 })
-    .withMessage("Adresse trop courte (min 5 caractères)"),
+    .withMessage("Address too short (min 5 characters)"),
 
   validate,
 ];

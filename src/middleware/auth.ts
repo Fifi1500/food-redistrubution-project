@@ -15,20 +15,17 @@ declare global {
 // Middleware d'authentification
 export const auth = async (req: Request, res: Response, next: NextFunction) => {
   try {
-    // Extraire le token du header Authorization
     const token = extractToken(req.headers.authorization);
 
     if (!token) {
       throw new Error();
     }
 
-    // Vérifier le token
     const decoded = verifyToken(token);
     if (!decoded) {
       throw new Error();
     }
 
-    // Récupérer l'utilisateur
     const userRepository = AppDataSource.getRepository(User);
     const user = await userRepository.findOne({
       where: { id: decoded.id },
@@ -41,70 +38,65 @@ export const auth = async (req: Request, res: Response, next: NextFunction) => {
 
     // Vérifier si le compte est actif
     if (user.isActive === false) {
-      return res.status(403).json({ message: "Compte désactivé" });
+      return res.status(403).json({ message: "Account deactivated" });
     }
 
-    // Ajouter l'utilisateur à la requête
     req.user = user;
     next();
   } catch (error) {
-    res.status(401).json({ message: "Non authentifié" });
+    res.status(401).json({ message: "Not authenticated" });
   }
 };
 
-// Middleware pour vérifier les rôles
 export const role = (roles: string[]) => {
   return (req: Request, res: Response, next: NextFunction) => {
     if (!req.user) {
-      return res.status(401).json({ message: "Non authentifié" });
+      return res.status(401).json({ message: "Not authenticated" });
     }
 
     if (!roles.includes(req.user.role)) {
-      return res.status(403).json({ message: "Accès non autorisé" });
+      return res.status(403).json({ message: "Access denied" });
     }
 
     next();
   };
 };
 
-// Middleware pour vérifier si l'utilisateur est un donateur
 export const isDonor = (req: Request, res: Response, next: NextFunction) => {
   if (!req.user) {
-    return res.status(401).json({ message: "Non authentifié" });
+    return res.status(401).json({ message: "Not authenticated" });
   }
 
   if (req.user.role !== "donor") {
-    return res.status(403).json({ message: "Réservé aux donateurs" });
+    return res.status(403).json({ message: "Reserved for donors" });
   }
 
   next();
 };
 
-// Middleware pour vérifier si l'utilisateur est un bénéficiaire
 export const isBeneficiary = (
   req: Request,
   res: Response,
   next: NextFunction,
 ) => {
   if (!req.user) {
-    return res.status(401).json({ message: "Non authentifié" });
+    return res.status(401).json({ message: "Not authenticated" });
   }
 
   if (req.user.role !== "beneficiary") {
-    return res.status(403).json({ message: "Réservé aux bénéficiaires" });
+    return res.status(403).json({ message: "Reserved for beneficiaries" });
   }
 
   next();
 };
 
-// Middleware pour vérifier si l'utilisateur est admin
 export const isAdmin = (req: Request, res: Response, next: NextFunction) => {
   if (!req.user) {
-    return res.status(401).json({ message: "Non authentifié" });
+    return res.status(401).json({ message: "Not authenticated" });
   }
 
   if (req.user.role !== "admin") {
-    return res.status(403).json({ message: "Réservé aux administrateurs" });
+    return res.status(403).json({ message: "Reserved for administrators" });
   }
 
   next();

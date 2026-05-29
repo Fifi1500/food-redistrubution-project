@@ -31,9 +31,6 @@ export class Beneficiary {
   })
   organizationType: OrganizationType;
 
-  @Column({ nullable: true })
-  verificationDocument: string; // URL ou chemin
-
   @Column({ default: false })
   isVerified: boolean;
 

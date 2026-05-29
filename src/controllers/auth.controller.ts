@@ -35,7 +35,7 @@ export class AuthController {
     try {
       const user = req.user;
       if (!user) {
-        return res.status(401).json({ message: "Non authentifié" });
+        return res.status(401).json({ message: "Not authenticated" });
       }
       const { password, ...userWithoutPassword } = user;
       res.json({ user: userWithoutPassword });
@@ -44,13 +44,12 @@ export class AuthController {
     }
   }
 
-  // ✅ DEMANDE DE RÉINITIALISATION - CORRIGÉ
   static async forgotPassword(req: Request, res: Response) {
     try {
       const { email } = req.body;
 
       if (!email) {
-        return res.status(400).json({ message: "Email requis" });
+        return res.status(400).json({ message: "Email required" });
       }
 
       const userRepository = AppDataSource.getRepository(User);
@@ -58,11 +57,10 @@ export class AuthController {
         where: { email },
       });
 
-      // Pour des raisons de sécurité, on ne dit pas si l'email existe
       if (!user) {
         return res.json({
           message:
-            "Si un compte existe avec cet email, vous recevrez un lien de réinitialisation.",
+            "If an account exists with this email, you will receive a reset link.",
         });
       }
 
@@ -82,7 +80,7 @@ export class AuthController {
       // Envoyer l'email
       await sendEmail({
         to: user.email,
-        subject: "Réinitialisation de votre mot de passe - FoodShare",
+        subject: "Reset your password - FoodShare",
         html: `
           <!DOCTYPE html>
           <html>
@@ -111,17 +109,17 @@ export class AuthController {
                 <h1>FoodShare</h1>
               </div>
               <div class="content">
-                <h2>Bonjour ${user.name},</h2>
-                <p>Vous avez demandé à réinitialiser votre mot de passe.</p>
-                <p>Cliquez sur le bouton ci-dessous pour le modifier :</p>
+                <h2>Hello ${user.name},</h2>
+                <p>You requested to reset your password.</p>
+                <p>Click the button below to change it:</p>
                 <div style="text-align: center;">
-                  <a href="${resetLink}" class="button">Réinitialiser mon mot de passe</a>
+                  <a href="${resetLink}" class="button">Reset my password</a>
                 </div>
-                <p>Ce lien est valable <strong>15 minutes</strong>.</p>
-                <p>Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.</p>
+                <p>This link is valid for <strong>15 minutes</strong>.</p>
+                <p>If you did not request this, please ignore this email.</p>
               </div>
               <div class="footer">
-                <p>FoodShare - Plateforme de redistribution alimentaire</p>
+                <p>FoodShare - Food redistribution platform</p>
               </div>
             </div>
           </body>
@@ -131,7 +129,7 @@ export class AuthController {
 
       res.json({
         message:
-          "Si un compte existe avec cet email, vous recevrez un lien de réinitialisation.",
+          "If an account exists with this email, you will receive a reset link.",
       });
     } catch (error: any) {
       console.error("Forgot password error:", error);
@@ -139,7 +137,6 @@ export class AuthController {
     }
   }
 
-  // ✅ RÉINITIALISATION DU MOT DE PASSE - CORRIGÉ
   static async resetPassword(req: Request, res: Response) {
     try {
       const { token, newPassword } = req.body;
@@ -147,12 +144,12 @@ export class AuthController {
       if (!token || !newPassword) {
         return res
           .status(400)
-          .json({ message: "Token et nouveau mot de passe requis" });
+          .json({ message: "Token and new password required" });
       }
 
       if (newPassword.length < 6) {
         return res.status(400).json({
-          message: "Le mot de passe doit contenir au moins 6 caractères",
+          message: "Password must be at least 6 characters",
         });
       }
 
@@ -164,11 +161,11 @@ export class AuthController {
       });
 
       if (!user) {
-        return res.status(400).json({ message: "Lien invalide" });
+        return res.status(400).json({ message: "Invalid link" });
       }
 
       if (!user.resetTokenExpires || user.resetTokenExpires < new Date()) {
-        return res.status(400).json({ message: "Lien expiré" });
+        return res.status(400).json({ message: "Link expired" });
       }
 
       // Hasher et sauvegarder le nouveau mot de passe
@@ -179,7 +176,7 @@ export class AuthController {
 
       await userRepository.save(user);
 
-      res.json({ message: "Mot de passe réinitialisé avec succès" });
+      res.json({ message: "Password reset successfully" });
     } catch (error: any) {
       console.error("Reset password error:", error);
       res.status(500).json({ message: error.message });

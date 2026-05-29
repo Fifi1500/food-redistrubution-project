@@ -4,9 +4,6 @@ import { PDFService } from "../services";
 const pdfService = new PDFService();
 
 export class PDFController {
-  /**
-   * Exporter les dons en PDF
-   */
   static async exportDonationsPDF(req: Request, res: Response) {
     try {
       const pdf = await pdfService.generateDonationsPDF();
@@ -21,9 +18,6 @@ export class PDFController {
     }
   }
 
-  /**
-   * Exporter les utilisateurs en PDF
-   */
   static async exportUsersPDF(req: Request, res: Response) {
     try {
       const role = req.query.role as string;
@@ -39,9 +33,6 @@ export class PDFController {
     }
   }
 
-  /**
-   * Exporter les statistiques en PDF
-   */
   static async exportStatsPDF(req: Request, res: Response) {
     try {
       const pdf = await pdfService.generateStatsPDF();

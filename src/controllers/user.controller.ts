@@ -30,7 +30,7 @@ export class UserController {
       const user = await userService.getUserById(id);
 
       if (!user) {
-        return res.status(404).json({ message: "Utilisateur non trouvé" });
+        return res.status(404).json({ message: "User not found" });
       }
 
       res.json({ user });
@@ -44,7 +44,7 @@ export class UserController {
     try {
       const user = req.user;
       if (!user) {
-        return res.status(401).json({ message: "Non authentifié" });
+        return res.status(401).json({ message: "Not authenticated" });
       }
 
       const updatedUser = await userService.updateProfile(user.id, req.body);
@@ -59,13 +59,13 @@ export class UserController {
     try {
       const user = req.user;
       if (!user) {
-        return res.status(401).json({ message: "Non authentifié" });
+        return res.status(401).json({ message: "Not authenticated" });
       }
 
       const { oldPassword, newPassword } = req.body;
       await userService.changePassword(user.id, oldPassword, newPassword);
 
-      res.json({ message: "Mot de passe changé avec succès" });
+      res.json({ message: "Password changed successfully" });
     } catch (error: any) {
       res.status(400).json({ message: error.message });
     }
@@ -76,13 +76,13 @@ export class UserController {
     try {
       const user = req.user;
       if (!user) {
-        return res.status(401).json({ message: "Non authentifié" });
+        return res.status(401).json({ message: "Not authenticated" });
       }
 
       const { password } = req.body;
       await userService.deleteAccount(user.id, password);
 
-      res.json({ message: "Compte supprimé avec succès" });
+      res.json({ message: "Account deleted successfully" });
     } catch (error: any) {
       res.status(400).json({ message: error.message });
     }
@@ -96,7 +96,7 @@ export class UserController {
     try {
       const { id } = req.params;
       await userService.verifyDonor(id);
-      res.json({ message: "Donateur vérifié avec succès" });
+      res.json({ message: "Donor verified successfully" });
     } catch (error: any) {
       res.status(400).json({ message: error.message });
     }
@@ -106,7 +106,7 @@ export class UserController {
     try {
       const { id } = req.params;
       await userService.verifyBeneficiary(id);
-      res.json({ message: "Bénéficiaire vérifié avec succès" });
+      res.json({ message: "Beneficiary verified successfully" });
     } catch (error: any) {
       res.status(400).json({ message: error.message });
     }
@@ -117,7 +117,7 @@ export class UserController {
     try {
       const { id } = req.params;
       await userService.deactivateUser(id);
-      res.json({ message: "Utilisateur désactivé avec succès" });
+      res.json({ message: "User deactivated successfully" });
     } catch (error: any) {
       res.status(400).json({ message: error.message });
     }
@@ -128,7 +128,7 @@ export class UserController {
     try {
       const { id } = req.params;
       await userService.activateUser(id);
-      res.json({ message: "Utilisateur activé avec succès" });
+      res.json({ message: "User activated successfully" });
     } catch (error: any) {
       res.status(400).json({ message: error.message });
     }
@@ -139,7 +139,7 @@ export class UserController {
     try {
       const { id } = req.params;
       await userService.deleteUser(id);
-      res.json({ message: "Utilisateur supprimé avec succès" });
+      res.json({ message: "User deleted successfully" });
     } catch (error: any) {
       res.status(400).json({ message: error.message });
     }
@@ -161,7 +161,7 @@ export class UserController {
       const { id } = req.params;
       const { role } = req.body;
       await userService.changeRole(id, role);
-      res.json({ message: `Rôle changé en ${role} avec succès` });
+      res.json({ message: `Role changed to ${role} successfully` });
     } catch (error: any) {
       res.status(400).json({ message: error.message });
     }

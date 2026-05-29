@@ -1,5 +1,4 @@
 import bcrypt from "bcryptjs";
-import https from "https";
 import { io } from "../app";
 import { UnitType } from "../entities/Donation";
 import { NotificationType } from "./types";
@@ -34,60 +33,6 @@ export const isValidQuantity = (quantity: number): boolean => {
 //address
 export const isValidAddress = (address: string): string | boolean => {
   return address && address.trim().length >= 5;
-};
-
-export const geocodeAddress = async (
-  address: string,
-): Promise<{ lat: number; lng: number } | null> => {
-  if (!address || !address.trim()) {
-    return null;
-  }
-
-  const params = new URLSearchParams({
-    format: "json",
-    q: address,
-    countrycodes: "dz",
-    limit: "1",
-    addressdetails: "0",
-  });
-
-  const url = `https://nominatim.openstreetmap.org/search?${params.toString()}`;
-
-  return new Promise((resolve, reject) => {
-    https
-      .get(
-        url,
-        {
-          headers: {
-            "User-Agent": "FoodRedistributionBackend/1.0 (contact@example.com)",
-          },
-        },
-        (res) => {
-          let data = "";
-          res.setEncoding("utf8");
-          res.on("data", (chunk) => {
-            data += chunk;
-          });
-          res.on("end", () => {
-            try {
-              const json = JSON.parse(data);
-              if (Array.isArray(json) && json.length > 0) {
-                const { lat, lon } = json[0] as {
-                  lat: string;
-                  lon: string;
-                };
-                resolve({ lat: parseFloat(lat), lng: parseFloat(lon) });
-              } else {
-                resolve(null);
-              }
-            } catch (error) {
-              reject(error);
-            }
-          });
-        },
-      )
-      .on("error", reject);
-  });
 };
 
 //name

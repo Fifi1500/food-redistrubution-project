@@ -33,6 +33,38 @@ export class NotificationService {
     });
   }
 
+  async getAllAdmins(): Promise<User[]> {
+    return await this.userRepository.find({
+      where: { role: UserRole.ADMIN, isActive: true },
+      select: ["id", "name", "email"],
+    });
+  }
+
+  async notifyAdmins(
+    title: string,
+    message: string,
+    options?: {
+      link?: string;
+      donationId?: string;
+      requestId?: string;
+      data?: any;
+    },
+  ): Promise<number> {
+    const admins = await this.getAllAdmins();
+    await Promise.all(
+      admins.map((admin) =>
+        this.createAndSend(
+          admin.id,
+          NotificationType.ADMIN_NOTIFICATION,
+          title,
+          message,
+          options,
+        ),
+      ),
+    );
+    return admins.length;
+  }
+
   async createAndSend(
     userId: string,
     type: NotificationType,

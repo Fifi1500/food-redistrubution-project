@@ -5,14 +5,11 @@ import { NotificationType } from "../utils/types";
 const notificationService = new NotificationService();
 
 export class NotificationController {
-  /**
-   * Récupérer mes notifications
-   */
   static async getMyNotifications(req: Request, res: Response) {
     try {
       const user = req.user;
       if (!user) {
-        return res.status(401).json({ message: "Non authentifié" });
+        return res.status(401).json({ message: "Not authenticated" });
       }
 
       const limit = parseInt(req.query.limit as string) || 50;
@@ -28,57 +25,48 @@ export class NotificationController {
     }
   }
 
-  /**
-   * Marquer une notification comme lue
-   */
   static async markAsRead(req: Request, res: Response) {
     try {
       const { id } = req.params;
       const user = req.user;
 
       if (!user) {
-        return res.status(401).json({ message: "Non authentifié" });
+        return res.status(401).json({ message: "Not authenticated" });
       }
 
       await notificationService.markAsRead(id, user.id);
-      res.json({ message: "Notification marquée comme lue" });
+      res.json({ message: "Notification marked as read" });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
   }
 
-  /**
-   * Marquer toutes les notifications comme lues
-   */
   static async markAllAsRead(req: Request, res: Response) {
     try {
       const user = req.user;
 
       if (!user) {
-        return res.status(401).json({ message: "Non authentifié" });
+        return res.status(401).json({ message: "Not authenticated" });
       }
 
       await notificationService.markAllAsRead(user.id);
-      res.json({ message: "Toutes les notifications sont lues" });
+      res.json({ message: "All notifications marked as read" });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
   }
 
-  /**
-   * Supprimer une notification
-   */
   static async deleteNotification(req: Request, res: Response) {
     try {
       const { id } = req.params;
       const user = req.user;
 
       if (!user) {
-        return res.status(401).json({ message: "Non authentifié" });
+        return res.status(401).json({ message: "Not authenticated" });
       }
 
       await notificationService.deleteNotification(id, user.id);
-      res.json({ message: "Notification supprimée" });
+      res.json({ message: "Notification deleted" });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
     }
@@ -106,7 +94,7 @@ export class NotificationController {
       const admin = req.user;
 
       if (!title || !message) {
-        return res.status(400).json({ message: "Titre et message requis" });
+        return res.status(400).json({ message: "Title and message required" });
       }
 
       let recipients: string[] = [];
@@ -136,7 +124,7 @@ export class NotificationController {
       res.json({
         success: true,
         sentCount: recipients.length,
-        message: `Notification envoyée à ${recipients.length} utilisateur(s)`,
+        message: `Notification sent to ${recipients.length} user(s)`,
       });
     } catch (error: any) {
       res.status(500).json({ message: error.message });
